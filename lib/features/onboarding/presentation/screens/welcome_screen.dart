@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';  // Add this import for ImageFilter
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:glassmorphism/glassmorphism.dart';
 import '../../../home/presentation/widgets/moody_character.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'dart:math' as math;
@@ -12,6 +12,48 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vector_math/vector_math.dart' as vector;
 import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Custom Glassmorphic Container Widget
+class GlassmorphicContainer extends StatelessWidget {
+  final Widget child;
+  final double width;
+  final double height;
+  final double borderRadius;
+  final double blur;
+  final Color borderColor;
+  final Color backgroundColor;
+
+  const GlassmorphicContainer({
+    Key? key,
+    required this.child,
+    required this.width,
+    required this.height,
+    this.borderRadius = 20,
+    this.blur = 20,
+    this.borderColor = Colors.white30,
+    this.backgroundColor = Colors.white10,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: borderColor),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
 
 // Simple navigation service that doesn't use providers directly
 class NavigationService {
@@ -526,44 +568,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                         height: _getMessageHeight(index),
                         borderRadius: 24,
                         blur: 10,
-                        border: 1.5,
-                        linearGradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            bubbleColors[index % bubbleColors.length].withOpacity(0.9),
-                            bubbleColors[index % bubbleColors.length].withOpacity(0.8),
-                          ],
-                        ),
-                        borderGradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withOpacity(0.8),
-                            bubbleColors[index % bubbleColors.length].withOpacity(0.3),
-                          ],
-                        ),
+                        borderColor: Colors.white.withOpacity(0.8),
+                        backgroundColor: bubbleColors[index % bubbleColors.length].withOpacity(0.9),
                         child: Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: _getMessagePadding(index),
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: bubbleColors[index % bubbleColors.length].withOpacity(0.3),
-                                offset: const Offset(0, 8),
-                                blurRadius: 20,
-                                spreadRadius: -2,
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.9),
-                                offset: const Offset(0, -1),
-                                blurRadius: 4,
-                                spreadRadius: 0,
-                              ),
-                            ],
                           ),
                           child: Text(
                             _messages[index],
@@ -648,24 +658,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                 height: 125,
                 borderRadius: 16,
                 blur: 15,
-                alignment: Alignment.center,
-                border: 1.5,
-                linearGradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.2),
-                    Colors.white.withOpacity(0.1),
-                  ],
-                ),
-                borderGradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.8),
-                    color.withOpacity(0.3),
-                  ],
-                ),
+                borderColor: Colors.white.withOpacity(0.8),
+                backgroundColor: Colors.white.withOpacity(0.1),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

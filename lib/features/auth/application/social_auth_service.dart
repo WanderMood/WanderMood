@@ -38,7 +38,7 @@ class SocialAuthService {
       final result = await FacebookAuth.instance.login();
       if (result.status != LoginStatus.success) return null;
 
-      final accessToken = result.accessToken?.token;
+      final accessToken = result.accessToken?.toJson()['token'] as String?;
       if (accessToken == null) return null;
 
       final response = await _supabase.auth.signInWithIdToken(

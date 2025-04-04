@@ -18,6 +18,7 @@ import '../../features/onboarding/presentation/screens/travel_style_screen.dart'
 import '../../features/onboarding/presentation/screens/preferences_summary_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_loading_screen.dart';
 import '../../features/dev/reset_screen.dart';
+import '../../features/plans/presentation/screens/plan_generation_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'router.g.dart';
@@ -81,6 +82,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/dev/reset',
       builder: (context, state) => const ResetScreen(),
+    ),
+    GoRoute(
+      path: '/generate-plan',
+      builder: (context, state) {
+        final selectedMoods = state.extra as List<String>;
+        return PlanGenerationScreen(selectedMoods: selectedMoods);
+      },
     ),
   ],
   // Add simple redirect logic for testing

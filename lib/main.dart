@@ -6,8 +6,25 @@ import 'core/router/router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/config/supabase_config.dart';
 import 'app.dart';
+import 'features/home/presentation/screens/main_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'features/auth/providers/user_provider.dart';
+import 'core/domain/providers/location_notifier_provider.dart';
 
-void main() async {
+// Provider to initialize app data on startup
+final appInitializerProvider = FutureProvider<bool>((ref) async {
+  // Start listening to auth state changes 
+  ref.watch(authStateChangesProvider);
+  
+  // Initialize location
+  if (Supabase.instance.client.auth.currentUser != null) {
+    await ref.read(locationNotifierProvider.notifier).getCurrentLocation();
+  }
+  
+  return true;
+});
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
@@ -17,11 +34,7 @@ void main() async {
     // Initialize Supabase with loaded environment variables
     await SupabaseConfig.initialize();
     
-    runApp(
-      const ProviderScope(
-        child: App(),
-      ),
-    );
+    runApp(const ProviderScope(child: MyApp()));
   } catch (e) {
     debugPrint('Error initializing app: $e');
     runApp(
@@ -32,6 +45,27 @@ void main() async {
           ),
         ),
       ),
+    );
+  }
+}
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, ref) {
+    // Start app initialization
+    ref.watch(appInitializerProvider);
+    
+    return MaterialApp(
+      title: 'WanderMood',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5BB32A)),
+        useMaterial3: true,
+        textTheme: GoogleFonts.museoModernoTextTheme(),
+      ),
+      home: const MainScreen(),
     );
   }
 }

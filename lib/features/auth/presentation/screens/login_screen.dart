@@ -10,6 +10,7 @@ import 'package:wandermood/features/auth/domain/providers/auth_provider.dart';
 import 'package:wandermood/features/auth/application/auth_service.dart';
 import 'package:wandermood/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:wandermood/features/auth/presentation/screens/register_screen.dart' as register;
+import 'package:wandermood/core/theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -69,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           password: _passwordController.text,
           onSuccess: () {
             if (mounted) {
-              context.go('/welcome');
+              context.go('/home');
             }
           },
           onError: (error) {
@@ -151,7 +152,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SwirlBackground(
+      body: Container(
+        decoration: AppTheme.backgroundGradient,
+        width: double.infinity,
+        height: double.infinity,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(

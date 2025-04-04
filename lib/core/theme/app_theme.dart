@@ -133,8 +133,8 @@ class AppTheme {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color(0xFFFFAFF4),  // Top color
-          Color(0xFFFFF5AF),  // Bottom color
+          Color(0xFFFFFDF5), // Warm cream yellow
+          Color(0xFFFFF3E0), // Slightly darker warm yellow
         ],
       ),
     );

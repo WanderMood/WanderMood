@@ -17,7 +17,10 @@ class AdventurePlanScreen extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFAFF4), Color(0xFFFFF5AF)],
+            colors: [
+              Color(0xFFFFFDF5), // Warm cream yellow
+              Color(0xFFFFF3E0), // Slightly darker warm yellow
+            ],
           ),
         ),
         child: SafeArea(

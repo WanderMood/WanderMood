@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
 
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({Key? key}) : super(key: key);
@@ -43,100 +44,93 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFAFF4),
-            Color(0xFFFFF5AF),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Agenda',
-                style: GoogleFonts.openSans(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF12B347),
-                ),
-              ),
-            ),
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16.0),
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TableCalendar<Event>(
-                firstDay: _firstDay,
-                lastDay: _lastDay,
-                focusedDay: _focusedDay,
-                calendarFormat: _calendarFormat,
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                calendarStyle: const CalendarStyle(
-                  markersMaxCount: 1,
-                  markerDecoration: BoxDecoration(
-                    color: Color(0xFF12B347),
-                    shape: BoxShape.circle,
+    return SwirlBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Agenda',
+                  style: GoogleFonts.openSans(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF12B347),
                   ),
                 ),
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-                },
-                onFormatChanged: (format) {
-                  if (_calendarFormat != format) {
-                    setState(() {
-                      _calendarFormat = format;
-                    });
-                  }
-                },
-                onPageChanged: (focusedDay) {
-                  _focusedDay = focusedDay;
-                },
-                eventLoader: _getEventsForDay,
               ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Card(
-                margin: const EdgeInsets.all(16.0),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16.0),
                 elevation: 4,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: ListView(
-                  padding: const EdgeInsets.all(16.0),
-                  children: [
-                    Text(
-                      'Geplande Activiteiten',
-                      style: GoogleFonts.openSans(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF12B347),
-                      ),
+                child: TableCalendar<Event>(
+                  firstDay: _firstDay,
+                  lastDay: _lastDay,
+                  focusedDay: _focusedDay,
+                  calendarFormat: _calendarFormat,
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  calendarStyle: const CalendarStyle(
+                    markersMaxCount: 1,
+                    markerDecoration: BoxDecoration(
+                      color: Color(0xFF12B347),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 16),
-                    ..._getEventsForDay(_selectedDay ?? _focusedDay)
-                        .map((event) => _buildEventCard(event)),
-                    const SizedBox(height: 16),
-                    _buildAddEventButton(),
-                  ],
+                  ),
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  onFormatChanged: (format) {
+                    if (_calendarFormat != format) {
+                      setState(() {
+                        _calendarFormat = format;
+                      });
+                    }
+                  },
+                  onPageChanged: (focusedDay) {
+                    _focusedDay = focusedDay;
+                  },
+                  eventLoader: _getEventsForDay,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Expanded(
+                child: Card(
+                  margin: const EdgeInsets.all(16.0),
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16.0),
+                    children: [
+                      Text(
+                        'Geplande Activiteiten',
+                        style: GoogleFonts.openSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF12B347),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ..._getEventsForDay(_selectedDay ?? _focusedDay)
+                          .map((event) => _buildEventCard(event)),
+                      const SizedBox(height: 16),
+                      _buildAddEventButton(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

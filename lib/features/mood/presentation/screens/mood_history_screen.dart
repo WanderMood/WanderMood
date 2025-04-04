@@ -31,8 +31,8 @@ class MoodHistoryScreen extends ConsumerWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFFFAFF4), // Roze
-              Color(0xFFFFF5AF), // Geel
+              Color(0xFFFFFDF5), // Warm cream yellow
+              Color(0xFFFFF3E0), // Slightly darker warm yellow
             ],
             stops: [0.0, 1.0],
           ),

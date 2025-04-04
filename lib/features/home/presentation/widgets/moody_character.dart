@@ -8,7 +8,8 @@ enum MoodyFeature {
   moodTracking,
   activities,
   settings,
-  none
+  none,
+  planGeneration,
 }
 
 class MoodyCharacter extends StatefulWidget {
@@ -169,6 +170,8 @@ class _MoodyCharacterState extends State<MoodyCharacter> with TickerProviderStat
         return "Want to customize your experience? Let me help! ⚙️";
       case MoodyFeature.none:
         return "";
+      case MoodyFeature.planGeneration:
+        return "I'm generating a plan for you! 🎯";
     }
   }
 

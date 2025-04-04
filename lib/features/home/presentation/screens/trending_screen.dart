@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/services.dart';
+import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
 
 class TrendingScreen extends StatefulWidget {
   const TrendingScreen({Key? key}) : super(key: key);
@@ -99,17 +100,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFAFF4),
-            Color(0xFFFFF5AF),
-          ],
-        ),
-      ),
+    return SwirlBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
