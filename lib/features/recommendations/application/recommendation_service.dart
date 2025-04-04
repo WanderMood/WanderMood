@@ -4,17 +4,54 @@ import '../../mood/application/mood_service.dart';
 import '../../weather/application/weather_service.dart';
 import '../domain/models/travel_recommendation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../weather/domain/models/location.dart';
+import '../../weather/domain/models/weather_location.dart';
 
 part 'recommendation_service.g.dart';
 
 @riverpod
-RecommendationService recommendationService(RecommendationServiceRef ref) {
-  return RecommendationService();
-}
-
-class RecommendationService {
+class RecommendationService extends _$RecommendationService {
   final _supabase = Supabase.instance.client;
+
+  @override
+  Future<List<WeatherLocation>> build() async {
+    return _getPopularDestinations();
+  }
+
+  Future<List<WeatherLocation>> _getPopularDestinations() async {
+    // Example popular destinations
+    return [
+      WeatherLocation(
+        id: 'paris',
+        name: 'Paris',
+        latitude: 48.8566,
+        longitude: 2.3522,
+      ),
+      WeatherLocation(
+        id: 'tokyo',
+        name: 'Tokyo',
+        latitude: 35.6762,
+        longitude: 139.6503,
+      ),
+      WeatherLocation(
+        id: 'newyork',
+        name: 'New York',
+        latitude: 40.7128,
+        longitude: -74.0060,
+      ),
+      WeatherLocation(
+        id: 'sydney',
+        name: 'Sydney',
+        latitude: -33.8688,
+        longitude: 151.2093,
+      ),
+      WeatherLocation(
+        id: 'dubai',
+        name: 'Dubai',
+        latitude: 25.2048,
+        longitude: 55.2708,
+      ),
+    ];
+  }
 
   Future<List<TravelRecommendation>> getRecommendations({
     DateTime? startDate,
@@ -22,7 +59,6 @@ class RecommendationService {
     int limit = 5,
   }) async {
     try {
-      // Probeer eerst gecachede voorspellingen te laden
       final destinations = await _getPopularDestinations();
       final recommendations = <TravelRecommendation>[];
 
@@ -41,7 +77,6 @@ class RecommendationService {
         recommendations.add(recommendation);
       }
 
-      // Sorteer op rating en beperk tot gevraagd aantal
       recommendations.sort((a, b) => b.rating.compareTo(a.rating));
       return recommendations.take(limit).toList();
     } catch (e) {
@@ -114,40 +149,5 @@ class RecommendationService {
       print('Error saving recommendation: $e');
       rethrow;
     }
-  }
-
-  Future<List<Location>> _getPopularDestinations() async {
-    return [
-      Location(
-        id: 'amsterdam',
-        name: 'Amsterdam',
-        latitude: 52.3676,
-        longitude: 4.9041,
-      ),
-      Location(
-        id: 'parijs',
-        name: 'Parijs',
-        latitude: 48.8566,
-        longitude: 2.3522,
-      ),
-      Location(
-        id: 'barcelona',
-        name: 'Barcelona',
-        latitude: 41.3851,
-        longitude: 2.1734,
-      ),
-      Location(
-        id: 'rome',
-        name: 'Rome',
-        latitude: 41.9028,
-        longitude: 12.4964,
-      ),
-      Location(
-        id: 'berlijn',
-        name: 'Berlijn',
-        latitude: 52.5200,
-        longitude: 13.4050,
-      ),
-    ];
   }
 } 

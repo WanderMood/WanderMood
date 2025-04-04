@@ -1,97 +1,99 @@
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart';
 import '../domain/models/weather_data.dart';
 import '../domain/models/weather_forecast.dart';
 import '../domain/models/weather_alert.dart';
-import '../domain/models/location.dart';
+import '../domain/models/weather_location.dart';
 import '../infrastructure/adapters/weather_data_adapter.dart';
 import '../infrastructure/adapters/weather_forecast_adapter.dart';
 import '../infrastructure/adapters/weather_alert_adapter.dart';
 import '../infrastructure/adapters/location_adapter.dart';
 
 class WeatherCacheService {
-  static const String _weatherBoxName = 'weather_data';
-  static const String _forecastBoxName = 'weather_forecasts';
+  static const String _locationBoxName = 'locations';
+  static const String _weatherBoxName = 'weather';
+  static const String _forecastBoxName = 'forecasts';
   static const String _alertBoxName = 'weather_alerts';
-  static const String _locationBoxName = 'weather_locations';
   static const Duration _cacheDuration = Duration(hours: 1);
 
+  late Box<WeatherLocation> _locationBox;
   late Box<WeatherData> _weatherBox;
   late Box<List<WeatherForecast>> _forecastBox;
-  late Box<List<WeatherAlert>> _alertBox;
-  late Box<Location> _locationBox;
+  Box<List<dynamic>>? _alertBox;
 
   Future<void> init() async {
-    await Hive.initFlutter();
-    
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(WeatherDataAdapter());
-    }
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(WeatherForecastAdapter());
-    }
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(WeatherAlertAdapter());
-    }
-    if (!Hive.isAdapterRegistered(3)) {
-      Hive.registerAdapter(LocationAdapter());
+    if (!Hive.isBoxOpen('forecasts')) {
+      final appDir = await getApplicationDocumentsDirectory();
+      Hive.init(appDir.path);
+      
+      // Register adapters if not already registered
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(WeatherForecastAdapter());
+      }
+      if (!Hive.isAdapterRegistered(1)) {
+        Hive.registerAdapter(WeatherAlertAdapter());
+      }
+      if (!Hive.isAdapterRegistered(2)) {
+        Hive.registerAdapter(LocationAdapter());
+      }
+      
+      _forecastBox = await Hive.openBox<List<WeatherForecast>>(_forecastBoxName);
+      _alertBox = await Hive.openBox<List<dynamic>>('alerts');
     }
 
+    _locationBox = await Hive.openBox<WeatherLocation>(_locationBoxName);
     _weatherBox = await Hive.openBox<WeatherData>(_weatherBoxName);
-    _forecastBox = await Hive.openBox<List<WeatherForecast>>(_forecastBoxName);
-    _alertBox = await Hive.openBox<List<WeatherAlert>>(_alertBoxName);
-    _locationBox = await Hive.openBox<Location>(_locationBoxName);
   }
 
-  Future<void> cacheWeatherData(Location location, WeatherData weather) async {
-    final key = _getLocationKey(location);
-    await _weatherBox.put(key, weather);
+  Future<void> cacheWeatherData(WeatherLocation location, WeatherData weather) async {
+    await _weatherBox.put(_getLocationKey(location), weather);
   }
 
-  Future<WeatherData?> getCachedWeatherData(Location location) async {
-    final key = _getLocationKey(location);
-    return _weatherBox.get(key);
+  Future<WeatherData?> getCachedWeatherData(WeatherLocation location) async {
+    return _weatherBox.get(_getLocationKey(location));
   }
 
-  Future<void> cacheForecasts(Location location, List<WeatherForecast> forecasts) async {
-    final key = _getLocationKey(location);
-    await _forecastBox.put(key, forecasts);
+  Future<void> cacheForecasts(WeatherLocation location, List<WeatherForecast> forecasts) async {
+    await _forecastBox.put(_getLocationKey(location), forecasts);
   }
 
-  Future<List<WeatherForecast>?> getCachedForecasts(Location location) async {
-    final key = _getLocationKey(location);
-    return _forecastBox.get(key);
+  Future<List<WeatherForecast>?> getCachedForecasts(WeatherLocation location) async {
+    return _forecastBox.get(_getLocationKey(location));
   }
 
   Future<void> cacheAlerts(List<WeatherAlert> alerts) async {
-    await _alertBox.put('alerts', alerts);
+    await _alertBox?.put('alerts', alerts);
   }
 
   Future<List<WeatherAlert>?> getCachedAlerts() async {
-    return _alertBox.get('alerts');
+    final alerts = _alertBox?.get('alerts');
+    return alerts?.cast<WeatherAlert>();
   }
 
-  Future<void> cacheLocation(Location location) async {
-    final key = _getLocationKey(location);
-    await _locationBox.put(key, location);
+  Future<void> cacheLocation(WeatherLocation location) async {
+    await _locationBox.put(location.id, location);
   }
 
-  Future<Location?> getCachedLocation(String name) async {
-    final locations = _locationBox.values.where((loc) => 
-      loc.name.toLowerCase() == name.toLowerCase()
-    ).toList();
-
-    if (locations.isEmpty) return null;
-    return locations.first;
+  Future<WeatherLocation?> getCachedLocation(String name) async {
+    final locations = _locationBox.values;
+    try {
+      return locations.firstWhere(
+        (loc) => loc.name.toLowerCase() == name.toLowerCase(),
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
-  String _getLocationKey(Location location) {
-    return '${location.latitude},${location.longitude}';
+  String _getLocationKey(WeatherLocation location) {
+    return '${location.latitude}_${location.longitude}';
   }
 
   Future<void> clearCache() async {
+    await init();
     await _weatherBox.clear();
     await _forecastBox.clear();
-    await _alertBox.clear();
+    await _alertBox?.clear();
     await _locationBox.clear();
   }
 }
@@ -142,17 +144,17 @@ class WeatherAlertAdapter extends TypeAdapter<WeatherAlert> {
   }
 }
 
-class LocationAdapter extends TypeAdapter<Location> {
+class LocationAdapter extends TypeAdapter<WeatherLocation> {
   @override
-  final int typeId = 3;
+  final int typeId = 0;
 
   @override
-  Location read(BinaryReader reader) {
-    return Location.fromJson(Map<String, dynamic>.from(reader.readMap()));
+  WeatherLocation read(BinaryReader reader) {
+    return WeatherLocation.fromJson(Map<String, dynamic>.from(reader.readMap()));
   }
 
   @override
-  void write(BinaryWriter writer, Location obj) {
+  void write(BinaryWriter writer, WeatherLocation obj) {
     writer.writeMap(obj.toJson());
   }
 } 

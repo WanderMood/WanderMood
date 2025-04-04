@@ -1,17 +1,17 @@
 import 'package:hive/hive.dart';
-import '../../domain/models/location.dart';
+import '../../domain/models/weather_location.dart';
 
-class LocationAdapter extends TypeAdapter<Location> {
+class LocationAdapter extends TypeAdapter<WeatherLocation> {
   @override
-  final int typeId = 3;
+  final int typeId = 2;
 
   @override
-  Location read(BinaryReader reader) {
-    return Location.fromJson(Map<String, dynamic>.from(reader.readMap()));
+  WeatherLocation read(BinaryReader reader) {
+    return WeatherLocation.fromJson(Map<String, dynamic>.from(reader.readMap()));
   }
 
   @override
-  void write(BinaryWriter writer, Location obj) {
+  void write(BinaryWriter writer, WeatherLocation obj) {
     writer.writeMap(obj.toJson());
   }
 } 

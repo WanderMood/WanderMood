@@ -33,7 +33,7 @@ dependencies:
   
   # Core
   supabase_flutter: ^2.3.4
-  flutter_riverpod: ^2.5.1
+  flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.5
   flutter_dotenv: ^5.1.0
   go_router: ^13.2.1
@@ -53,7 +53,7 @@ dependencies:
   # Features
   geolocator: ^11.0.0
   geocoding: ^2.2.0
-  weather: ^3.2.0
+  weather: ^3.1.1
   flutter_google_maps_webservices: ^1.1.1
   google_maps_flutter: ^2.12.1
   map_launcher: ^3.5.0
@@ -85,6 +85,8 @@ dependencies:
   
   # API Integration
   dart_openai: ^5.1.0
+  image_picker: ^1.0.7
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -122,14 +124,8 @@ flutter:
   assets:
     - .env
     - assets/images/
-    - assets/images/onboarding/
-    - assets/images/onboarding/mood/
-    - assets/images/onboarding/personalized/
-    - assets/images/onboarding/share/
-    - assets/images/onboarding/community/
-    - assets/icons/
-    - assets/fonts/
     - assets/animations/
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../widgets/recommendation_card.dart';
 import '../../application/recommendation_service.dart';
 import '../../domain/models/travel_recommendation.dart';
 
@@ -12,8 +11,9 @@ class RecommendationsPage extends ConsumerStatefulWidget {
 }
 
 class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
+  List<TravelRecommendation>? _recommendations;
   bool _isLoading = false;
-  List<TravelRecommendation> _recommendations = [];
+  String? _error;
 
   @override
   void initState() {
@@ -22,22 +22,31 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   }
 
   Future<void> _loadRecommendations() async {
-    setState(() => _isLoading = true);
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
       final recommendations = await ref
-          .read(recommendationServiceProvider)
+          .read(recommendationServiceProvider.notifier)
           .getRecommendations();
-      setState(() => _recommendations = recommendations);
+      
+      if (mounted) {
+        setState(() {
+          _recommendations = recommendations;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Fout bij het laden van aanbevelingen: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -45,7 +54,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reisaanbevelingen'),
+        title: const Text('Travel Recommendations'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -53,50 +62,95 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _recommendations.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.travel_explore,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Geen aanbevelingen beschikbaar',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: _loadRecommendations,
-                        child: const Text('Opnieuw proberen'),
-                      ),
-                    ],
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadRecommendations,
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final recommendations = _recommendations;
+    if (recommendations == null || recommendations.isEmpty) {
+      return const Center(
+        child: Text('No recommendations available'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadRecommendations,
+      child: ListView.builder(
+        itemCount: recommendations.length,
+        itemBuilder: (context, index) {
+          final recommendation = recommendations[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: ListTile(
+              title: Text(recommendation.title),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(recommendation.description),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Location: ${recommendation.location}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _recommendations.length,
-                  itemBuilder: (context, index) {
-                    final recommendation = _recommendations[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: RecommendationCard(
-                        recommendation: recommendation,
-                        onTap: () {
-                          // TODO: Implementeer navigatie naar detail pagina
-                        },
-                      ),
-                    );
-                  },
-                ),
+                  Text(
+                    'Price: \$${recommendation.price.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.favorite_border),
+                onPressed: () async {
+                  try {
+                    await ref
+                        .read(recommendationServiceProvider.notifier)
+                        .toggleFavorite(recommendation.id);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Favorite updated successfully'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating favorite: $e'),
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 } 

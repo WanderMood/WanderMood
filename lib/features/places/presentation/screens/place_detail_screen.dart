@@ -13,6 +13,7 @@ import '../../models/place.dart';
 import '../../providers/place_detail_provider.dart';
 import '../widgets/booking_section.dart';
 import '../widgets/expanded_image_view.dart';
+import '../widgets/place_image.dart';
 
 class PlaceDetailScreen extends ConsumerStatefulWidget {
   final String placeId;
@@ -254,139 +255,114 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                               )
                             : null,
                           titlePadding: const EdgeInsets.only(left: 54, bottom: 16, right: 100),
-                          background: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(24),
-                            ),
-                            child: Stack(
-                              children: [
-                                // Image with color filter for enhanced brightness like in Explore screen
-                                ColorFiltered(
-                                  colorFilter: ColorFilter.matrix([
-                                    1.2, 0, 0, 0, 0.1, // Red channel
-                                    0, 1.2, 0, 0, 0.1, // Green channel
-                                    0, 0, 1.2, 0, 0.1, // Blue channel
-                                    0, 0, 0, 1, 0, // Alpha channel
-                                  ]),
-                                  child: place.isAsset
-                                    ? Image.asset(
-                                        place.photos.isNotEmpty
-                                            ? place.photos.first
-                                            : 'assets/images/placeholder.jpg',
-                                        width: double.infinity,
-                                        height: 320,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.network(
-                                        place.photos.isNotEmpty
-                                            ? place.photos.first
-                                            : 'https://via.placeholder.com/600x400?text=No+Image',
-                                        width: double.infinity,
-                                        height: 320,
-                                        fit: BoxFit.cover,
-                                      ),
-                                ),
-                                // Gradient overlay
-                                Container(
-                                  height: 320,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withOpacity(0.4),
-                                      ],
-                                      stops: const [0.6, 1.0],
-                                    ),
-                                  ),
-                                ),
-                                // Place name and rating at the bottom
-                                Positioned(
-                                  bottom: 20,
-                                  left: 16,
-                                  right: 16,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        place.name,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.black.withOpacity(0.6),
-                                              offset: const Offset(0, 1),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                      ).animate().fade(duration: const Duration(milliseconds: 500)).slideY(begin: 0.2, end: 0),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            color: Color(0xFFFFD700),
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            place.rating.toString(),
-                                            style: GoogleFonts.poppins(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          if (place.tag != null)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                place.tag!,
-                                                style: GoogleFonts.poppins(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ).animate().fade(duration: const Duration(milliseconds: 500), delay: const Duration(milliseconds: 100)).slideY(begin: 0.2, end: 0),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.location_on_outlined,
-                                            color: Colors.white.withOpacity(0.9),
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            "Rotterdam, Netherlands",
-                                            style: GoogleFonts.poppins(
-                                              color: Colors.white.withOpacity(0.9),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                            ),
-                                          ),
-                                        ],
-                                      ).animate().fade(duration: const Duration(milliseconds: 500), delay: const Duration(milliseconds: 150)).slideY(begin: 0.2, end: 0),
+                          background: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              PlaceImage(
+                                imageUrl: place.photos.isNotEmpty 
+                                  ? place.photos.first 
+                                  : 'assets/images/qr_placeholder.png',
+                                height: 320,
+                                fit: BoxFit.cover,
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.4),
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              // Place name and rating at the bottom
+                              Positioned(
+                                bottom: 20,
+                                left: 16,
+                                right: 16,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      place.name,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.6),
+                                            offset: const Offset(0, 1),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                    ).animate().fade(duration: const Duration(milliseconds: 500)).slideY(begin: 0.2, end: 0),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.star,
+                                          color: Color(0xFFFFD700),
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          place.rating.toString(),
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        if (place.tag != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              place.tag!,
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ).animate().fade(duration: const Duration(milliseconds: 500), delay: const Duration(milliseconds: 100)).slideY(begin: 0.2, end: 0),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.location_on_outlined,
+                                          color: Colors.white.withOpacity(0.9),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          place.address,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white.withOpacity(0.9),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
+                                    ).animate().fade(duration: const Duration(milliseconds: 500), delay: const Duration(milliseconds: 150)).slideY(begin: 0.2, end: 0),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -431,7 +407,16 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 transform: Matrix4.identity()..scale(_tabController.index == 0 ? 1.05 : 1.0),
-                                child: Tab(text: 'Details'),
+                                child: Tab(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('📋', style: TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 6),
+                                      Text('Details'),
+                                    ],
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -441,7 +426,16 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 transform: Matrix4.identity()..scale(_tabController.index == 1 ? 1.05 : 1.0),
-                                child: Tab(text: 'Photos'),
+                                child: Tab(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('📸', style: TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 6),
+                                      Text('Photos'),
+                                    ],
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -451,7 +445,16 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 transform: Matrix4.identity()..scale(_tabController.index == 2 ? 1.05 : 1.0),
-                                child: Tab(text: 'Map'),
+                                child: Tab(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('🗺️', style: TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 6),
+                                      Text('Map'),
+                                    ],
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -1198,7 +1201,16 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       transform: Matrix4.identity()..scale(tabBar.controller!.index == 0 ? 1.05 : 1.0),
-                      child: Tab(text: 'Details'),
+                      child: Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('📋', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 6),
+                            Text('Details'),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -1208,7 +1220,16 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       transform: Matrix4.identity()..scale(tabBar.controller!.index == 1 ? 1.05 : 1.0),
-                      child: Tab(text: 'Photos'),
+                      child: Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('📸', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 6),
+                            Text('Photos'),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -1218,7 +1239,16 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       transform: Matrix4.identity()..scale(tabBar.controller!.index == 2 ? 1.05 : 1.0),
-                      child: Tab(text: 'Map'),
+                      child: Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🗺️', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 6),
+                            Text('Map'),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),

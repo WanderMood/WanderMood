@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/models/weather_data.dart';
 import '../domain/models/weather_forecast.dart';
 import '../domain/models/weather_alert.dart';
-import '../domain/models/location.dart';
+import '../domain/models/weather_location.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -12,6 +12,7 @@ import 'weather_cache_service.dart';
 import 'package:wandermood/features/location/providers/location_provider.dart';
 import 'package:wandermood/features/location/services/location_service.dart';
 import 'package:wandermood/features/weather/domain/models/weather.dart';
+import 'package:wandermood/core/config/api_config.dart';
 
 part 'weather_service.g.dart';
 
@@ -25,20 +26,28 @@ class DateRange {
 @riverpod
 class WeatherService extends _$WeatherService {
   final _cacheService = WeatherCacheService();
-  static const String _baseUrl = 'https://api.open-meteo.com/v1';
+  bool _isInitialized = false;
+
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await _cacheService.init();
+      _isInitialized = true;
+    }
+  }
 
   @override
   FutureOr<Weather?> build() async {
+    await _ensureInitialized();
     final locationState = ref.watch(locationNotifierProvider);
     
     return locationState.when(
       data: (location) async {
         if (location == null) return null;
-        return getCurrentWeather(Location(
+        return getCurrentWeather(WeatherLocation(
           id: location.toLowerCase(),
           name: location,
-          latitude: 0,
-          longitude: 0,
+          latitude: 52.3676, // Amsterdam coordinates for testing
+          longitude: 4.9041,
         ));
       },
       loading: () => null,
@@ -46,26 +55,43 @@ class WeatherService extends _$WeatherService {
     );
   }
 
-  Future<Weather> getCurrentWeather(Location location) async {
-    // TODO: Implement actual weather API call
-    return Weather(
-      temperature: 25.0,
-      condition: 'Sunny',
-      location: location,
-    );
-  }
+  Future<Weather> getCurrentWeather(WeatherLocation location) async {
+    try {
+      final url = ApiConfig.currentWeatherEndpoint(location.latitude, location.longitude);
+      print('Fetching current weather from: $url');
+      
+      final response = await http.get(Uri.parse(url));
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
-  Future<List<WeatherForecast>> getWeatherForecast(Location location) async {
-    // TODO: Implement actual weather API call
-    return List.generate(24, (index) => WeatherForecast(
-      time: '${index.toString().padLeft(2, '0')}:00',
-      temperature: 20 + (index % 5),
-      condition: 'Sunny',
-    ));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Weather(
+          temperature: data['main']['temp'].toDouble(),
+          condition: data['weather'][0]['main'],
+          humidity: data['main']['humidity'],
+          windSpeed: data['wind']['speed'].toDouble(),
+          icon: data['weather'][0]['icon'],
+          description: data['weather'][0]['description'],
+          feelsLike: data['main']['feels_like'].toDouble(),
+          minTemp: data['main']['temp_min'].toDouble(),
+          maxTemp: data['main']['temp_max'].toDouble(),
+          pressure: data['main']['pressure'],
+          sunrise: DateTime.fromMillisecondsSinceEpoch(data['sys']['sunrise'] * 1000),
+          sunset: DateTime.fromMillisecondsSinceEpoch(data['sys']['sunset'] * 1000),
+        );
+      } else {
+        print('Error response: ${response.body}');
+        throw Exception('Failed to load current weather: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching current weather: $e');
+      throw Exception('Failed to load current weather: $e');
+    }
   }
 
   Future<List<WeatherForecast>> getWeatherForecast(
-    Location location, {
+    WeatherLocation location, {
     int days = 5,
   }) async {
     try {
@@ -75,37 +101,51 @@ class WeatherService extends _$WeatherService {
         return cachedForecasts;
       }
 
-      final response = await http.get(Uri.parse(
-        '$_baseUrl/forecast?'
-        'latitude=${location.latitude}'
-        '&longitude=${location.longitude}'
-        '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,precipitation_sum,sunrise,sunset,uv_index_max,relative_humidity_2m_max'
-        '&timezone=auto'
-        '&forecast_days=$days'
-      ));
+      final url = ApiConfig.forecastEndpoint(location.latitude, location.longitude);
+      print('Fetching forecast from: $url');
+      
+      final response = await http.get(Uri.parse(url));
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final daily = data['daily'];
-        
         final List<WeatherForecast> forecasts = [];
-        for (int i = 0; i < days; i++) {
-          final weatherCode = daily['weather_code'][i] as int;
-          final (conditions, description, icon) = _mapWeatherCode(weatherCode);
+        
+        // Group forecasts by day
+        final Map<String, List<dynamic>> dailyForecasts = {};
+        for (var item in data['list']) {
+          final date = DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000);
+          final dateKey = '${date.year}-${date.month}-${date.day}';
+          
+          if (!dailyForecasts.containsKey(dateKey)) {
+            dailyForecasts[dateKey] = [];
+          }
+          dailyForecasts[dateKey]!.add(item);
+        }
+        
+        // Process each day's forecasts
+        for (var entry in dailyForecasts.entries.take(days)) {
+          final forecasts = entry.value;
+          final dayData = forecasts[0]; // Use first forecast of the day
+          
+          final temps = forecasts.map((f) => f['main']['temp'].toDouble()).toList();
+          final maxTemp = temps.reduce((a, b) => a > b ? a : b);
+          final minTemp = temps.reduce((a, b) => a < b ? a : b);
           
           forecasts.add(WeatherForecast(
-            date: DateTime.parse(daily['time'][i]),
-            maxTemperature: daily['temperature_2m_max'][i].toDouble(),
-            minTemperature: daily['temperature_2m_min'][i].toDouble(),
-            conditions: conditions,
-            precipitationProbability: daily['precipitation_probability_max'][i].toDouble(),
-            humidity: daily['relative_humidity_2m_max'][i].toDouble(),
-            precipitation: daily['precipitation_sum'][i].toDouble(),
-            sunrise: DateTime.parse(daily['sunrise'][i]),
-            sunset: DateTime.parse(daily['sunset'][i]),
-            uvIndex: daily['uv_index_max'][i].toDouble(),
-            description: description,
-            icon: icon,
+            date: DateTime.fromMillisecondsSinceEpoch(dayData['dt'] * 1000),
+            maxTemperature: maxTemp,
+            minTemperature: minTemp,
+            conditions: dayData['weather'][0]['main'],
+            precipitationProbability: (dayData['pop'] * 100).toDouble(),
+            humidity: dayData['main']['humidity'].toDouble(),
+            precipitation: dayData['rain']?['3h']?.toDouble() ?? 0.0,
+            sunrise: DateTime.now(), // Not available in free API
+            sunset: DateTime.now(), // Not available in free API
+            uvIndex: 0, // Not available in free API
+            description: dayData['weather'][0]['description'],
+            icon: dayData['weather'][0]['icon'],
           ));
         }
         
@@ -114,7 +154,8 @@ class WeatherService extends _$WeatherService {
         
         return forecasts;
       } else {
-        throw Exception('Failed to load weather forecast');
+        print('Error response: ${response.body}');
+        throw Exception('Failed to load weather forecast: ${response.statusCode}');
       }
     } catch (e) {
       print('Error fetching forecasts: $e');
@@ -122,94 +163,9 @@ class WeatherService extends _$WeatherService {
     }
   }
 
-  // Helper method to map OpenMeteo weather codes to conditions
-  (String, String, String) _mapWeatherCode(int code) {
-    switch (code) {
-      case 0:
-        return ('Clear', 'Clear sky', '01d');
-      case 1:
-      case 2:
-      case 3:
-        return ('Clouds', 'Partly cloudy', '02d');
-      case 45:
-      case 48:
-        return ('Fog', 'Foggy', '50d');
-      case 51:
-      case 53:
-      case 55:
-        return ('Drizzle', 'Light drizzle', '09d');
-      case 61:
-      case 63:
-      case 65:
-        return ('Rain', 'Rain', '10d');
-      case 71:
-      case 73:
-      case 75:
-        return ('Snow', 'Snow', '13d');
-      case 77:
-        return ('Snow', 'Snow grains', '13d');
-      case 80:
-      case 81:
-      case 82:
-        return ('Rain', 'Heavy rain', '10d');
-      case 85:
-      case 86:
-        return ('Snow', 'Heavy snow', '13d');
-      case 95:
-        return ('Thunderstorm', 'Thunderstorm', '11d');
-      case 96:
-      case 99:
-        return ('Thunderstorm', 'Thunderstorm with hail', '11d');
-      default:
-        return ('Unknown', 'Unknown weather condition', '01d');
-    }
-  }
-
-  Future<List<WeatherAlert>> getWeatherAlerts(Location location) async {
-    try {
-      // Probeer eerst gecachede alerts te laden
-      final cachedAlerts = await _cacheService.getCachedAlerts();
-      if (cachedAlerts != null) {
-        return cachedAlerts;
-      }
-
-      final response = await http.get(Uri.parse(
-        '$_baseUrl/forecast?'
-        'latitude=${location.latitude}'
-        '&longitude=${location.longitude}'
-        '&daily=weather_code'
-        '&timezone=auto'
-        '&forecast_days=1'
-      ));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final daily = data['daily'];
-        
-        final List<WeatherAlert> alerts = [];
-        for (int i = 0; i < 1; i++) {
-          final weatherCode = daily['weather_code'][i] as int;
-          final (conditions, description, icon) = _mapWeatherCode(weatherCode);
-          
-          alerts.add(WeatherAlert(
-            date: DateTime.parse(daily['time'][i]),
-            conditions: conditions,
-            description: description,
-            icon: icon,
-          ));
-        }
-        
-        // Cache the alerts
-        await _cacheService.cacheAlerts(alerts);
-        
-        return alerts;
-      } else {
-        throw Exception('Kon weeralerts niet ophalen');
-      }
-    } catch (e) {
-      print('Error fetching alerts: $e');
-      return [];
-    }
+  Future<List<WeatherAlert>> getWeatherAlerts(WeatherLocation location) async {
+    // Alerts are not available in the free API
+    return [];
   }
 
   Future<void> clearCache() async {

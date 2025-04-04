@@ -3,245 +3,606 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wandermood/features/auth/domain/providers/auth_provider.dart';
-import 'package:wandermood/features/auth/presentation/screens/login_screen.dart';
+import 'package:wandermood/features/profile/domain/providers/profile_provider.dart';
+import 'package:wandermood/features/profile/presentation/screens/profile_edit_screen.dart';
 import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wandermood/features/profile/presentation/screens/language_settings_screen.dart';
+import 'package:wandermood/features/profile/presentation/screens/privacy_settings_screen.dart';
+import 'package:wandermood/features/profile/presentation/screens/theme_settings_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'Unknown';
+    
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(authStateProvider);
+    final profileState = ref.watch(profileProvider);
     
     return SwirlBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: userState.when(
-            data: (user) => Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Your Profile',
-                    style: GoogleFonts.museoModerno(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF4CAF50),
-                    ),
-                  ),
-                ).animate().fadeIn(duration: 400.ms),
-                
-                const SizedBox(height: 20),
-                
-                // Profile Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
+            data: (user) => profileState.when(
+              data: (profile) => SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Header
+                    Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          // Avatar
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: const Color(0xFF4CAF50).withOpacity(0.2),
-                            child: Text(
-                              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
-                              style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF4CAF50),
+                      child: Text(
+                        'Your Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                    ).animate().fadeIn(duration: 400.ms),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Profile Info Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              // Avatar with Edit Button
+                              Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: const Color(0xFF4CAF50).withOpacity(0.2),
+                                    backgroundImage: profile?.imageUrl != null
+                                        ? NetworkImage(profile!.imageUrl!)
+                                        : null,
+                                    child: profile?.imageUrl == null
+                                        ? Text(
+                                            profile?.fullName?.substring(0, 1).toUpperCase() ?? 
+                                            profile?.email.substring(0, 1).toUpperCase() ?? 'U',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 40,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF4CAF50),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  Positioned(
+                                    right: -8,
+                                    bottom: -8,
+                                    child: IconButton(
+                                      icon: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF4CAF50),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.edit,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const ProfileEditScreen(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Email
-                          Text(
-                            user?.email ?? 'Not logged in',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 8),
-                          
-                          // Member since
-                          Text(
-                            'Member since: ${_formatDate(user?.createdAt)}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Sign out button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: () => _handleSignOut(context, ref),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text(
-                                'Sign Out',
-                                style: TextStyle(
-                                  fontSize: 16,
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Username and Display Name
+                              Text(
+                                profile?.fullName ?? 'Add your name',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
+                              Text(
+                                '@${profile?.username ?? 'username'}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 8),
+                              
+                              // Bio
+                              Text(
+                                profile?.bio ?? 'Add a bio to tell your story',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[800],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Mood Streak and Favorite Mood
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '${profile?.moodStreak ?? 0}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF4CAF50),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Day Streak',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 32),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        profile?.favoriteMood ?? '😊',
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Favorite Mood',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      ),
+                    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Social Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              // Followers/Following
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '${profile?.followersCount ?? 0}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Followers',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    height: 40,
+                                    width: 1,
+                                    color: Colors.grey[300],
+                                  ),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '${profile?.followingCount ?? 0}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Following',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Share Profile Button
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => Dialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Share Profile',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              QrImageView(
+                                                data: 'wandermood://profile/${profile?.username ?? profile?.id}',
+                                                version: QrVersions.auto,
+                                                size: 200.0,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'Scan to connect',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4CAF50),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                  icon: const Icon(Icons.share),
+                                  label: Text(
+                                    'Share Profile',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Achievements
+                              if (profile?.achievements.isNotEmpty ?? false) ...[
+                                const Divider(),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Achievements',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: (profile?.achievements ?? []).map((achievement) => Chip(
+                                    label: Text(
+                                      achievement,
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                    backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+                                  )).toList(),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ).animate().fadeIn(duration: 800.ms).slideY(begin: 0.2, end: 0),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Settings Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildSettingItem(
+                              icon: Icons.notifications_outlined,
+                              title: 'Notifications',
+                              subtitle: 'Manage your notifications',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const PrivacySettingsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _buildSettingItem(
+                              icon: Icons.language_outlined,
+                              title: 'Language',
+                              subtitle: profile?.languagePreference.toUpperCase() ?? 'EN',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LanguageSettingsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _buildSettingItem(
+                              icon: Icons.lock_outline,
+                              title: 'Privacy',
+                              subtitle: profile?.isPublic == true ? 'Public Profile' : 'Private Profile',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const PrivacySettingsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _buildSettingItem(
+                              icon: Icons.palette_outlined,
+                              title: 'Theme',
+                              subtitle: profile?.themePreference.capitalize() ?? 'System',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ThemeSettingsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _buildSettingItem(
+                              icon: Icons.help_outline,
+                              title: 'Help & Support',
+                              subtitle: 'Get assistance',
+                              onTap: () {
+                                // TODO: Implement help & support screen
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Help & Support coming soon!',
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                    backgroundColor: const Color(0xFF4CAF50),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _buildSettingItem(
+                              icon: Icons.logout,
+                              title: 'Sign Out',
+                              subtitle: 'Log out of your account',
+                              onTap: () => _handleSignOut(context, ref),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ).animate().fadeIn(duration: 1000.ms).slideY(begin: 0.2, end: 0),
+                    
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading profile',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-                
-                const SizedBox(height: 30),
-                
-                // Settings
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    child: Column(
-                      children: [
-                        _buildSettingItem(
-                          icon: Icons.person,
-                          title: 'Bewerk Profiel',
-                          onTap: () {},
-                        ),
-                        const Divider(height: 1),
-                        _buildSettingItem(
-                          icon: Icons.notifications,
-                          title: 'Notificaties',
-                          onTap: () {},
-                        ),
-                        const Divider(height: 1),
-                        _buildSettingItem(
-                          icon: Icons.lock,
-                          title: 'Privacy',
-                          onTap: () {},
-                        ),
-                        const Divider(height: 1),
-                        _buildSettingItem(
-                          icon: Icons.help,
-                          title: 'Help & Support',
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
-              ],
+                  ],
+                ),
+              ),
             ),
-            loading: () => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            error: (error, stackTrace) => Center(
-              child: Text('Error: $error'),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Text(
+                'Error: $error',
+                style: GoogleFonts.poppins(),
+              ),
             ),
           ),
         ),
       ),
     );
   }
-  
-  Widget _buildSettingItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: const Color(0xFF4CAF50),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'Onbekend';
-    
-    try {
-      final date = DateTime.parse(dateString);
-      return '${date.day}-${date.month}-${date.year}';
-    } catch (e) {
-      return 'Onbekend';
-    }
-  }
-  
-  void _handleSignOut(BuildContext context, WidgetRef ref) async {
-    // Toon een bevestigingsdialoog
+
+  Future<void> _handleSignOut(BuildContext context, WidgetRef ref) async {
+    // Show confirmation dialog
     final shouldSignOut = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Uitloggen'),
-        content: const Text('Weet je zeker dat je wilt uitloggen?'),
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuleren'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
             ),
-            child: const Text('Uitloggen'),
+            child: const Text('Sign Out'),
           ),
         ],
       ),
     );
     
-    // Als de gebruiker bevestigt, log dan uit
+    // If user confirms, sign out
     if (shouldSignOut == true) {
-      await ref.read(authStateProvider.notifier).signOut();
-      
-      // Navigeer naar het login scherm
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-        );
+      try {
+        // Show loading indicator
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        // Clear all relevant providers
+        ref.invalidate(profileProvider);
+        
+        // Sign out from Supabase
+        final supabase = Supabase.instance.client;
+        await supabase.auth.signOut();
+        
+        // Clear any cached data or local storage if needed
+        // TODO: Add any additional cleanup here
+        
+        // Navigate to login screen and remove all previous routes
+        if (context.mounted) {
+          // First pop the loading dialog
+          Navigator.of(context).pop();
+          // Then navigate to login
+          context.go('/login');
+        }
+      } catch (e) {
+        // Pop loading dialog if there's an error
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error signing out: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: () => _handleSignOut(context, ref),
+              ),
+            ),
+          );
+        }
       }
     }
+  }
+
+  Widget _buildSettingItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFF4CAF50)),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.poppins(
+          color: Colors.grey[600],
+          fontSize: 12,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Color(0xFF4CAF50)),
+      onTap: onTap,
+    );
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1)}";
   }
 } 

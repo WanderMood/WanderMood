@@ -7,6 +7,7 @@ import 'explore_screen.dart';
 import 'package:wandermood/features/auth/providers/user_provider.dart';
 import 'package:wandermood/core/domain/providers/location_notifier_provider.dart';
 import 'package:wandermood/features/weather/providers/weather_provider.dart';
+import 'package:wandermood/features/profile/presentation/screens/profile_screen.dart';
 
 // Placeholder screens for other sections
 class TrendingScreen extends ConsumerWidget {
@@ -19,12 +20,6 @@ class AgendaScreen extends ConsumerWidget {
   const AgendaScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => const Center(child: Text('Agenda Coming Soon'));
-}
-
-class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => const Center(child: Text('Profile Coming Soon'));
 }
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -109,11 +104,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(0, Icons.home_outlined, 'Home'),
-                  _buildNavItem(1, Icons.explore_outlined, 'Explore'),
-                  _buildNavItem(2, Icons.local_fire_department, 'Trending'),
-                  _buildNavItem(3, Icons.calendar_today_outlined, 'Agenda'),
-                  _buildNavItem(4, Icons.person_outline, 'Profile'),
+                  _buildNavItem(0, 'Home'),
+                  _buildNavItem(1, 'Explore'),
+                  _buildNavItem(2, 'Trending'),
+                  _buildNavItem(3, 'Agenda'),
+                  _buildNavItem(4, 'Profile'),
                 ],
               ),
             ),
@@ -123,34 +118,59 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final isActive = _selectedIndex == index;
+  Widget _buildNavItem(int index, String label) {
+    final isSelected = _selectedIndex == index;
+    final emoji = _getEmojiForTab(index);
+    
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
-        height: 64,
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF12B347).withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? const Color(0xFF12B347) : const Color(0xFF9D9DA5),
-              size: 24,
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 20),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
-              style: GoogleFonts.openSans(
-                fontSize: 12,
-                color: isActive ? const Color(0xFF12B347) : const Color(0xFF9D9DA5),
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF12B347) : Colors.grey.shade600,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _getEmojiForTab(int index) {
+    switch (index) {
+      case 0:
+        return '🏠'; // Home
+      case 1:
+        return '🌍'; // Explore
+      case 2:
+        return '🔥'; // Trending
+      case 3:
+        return '📅'; // Agenda
+      case 4:
+        return '👤'; // Profile
+      default:
+        return '❓';
+    }
   }
 } 

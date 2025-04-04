@@ -369,11 +369,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     children: [
                       Text(
                         "Don't have an account? ",
-                        style: TextStyle(color: Colors.black87),
+                        style: GoogleFonts.poppins(color: Colors.black87),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/auth/signup'),
-                        child: const Text('Register'),
+                        onPressed: () => context.go('/register'),
+                        child: Text(
+                          'Register',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF4CAF50),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
