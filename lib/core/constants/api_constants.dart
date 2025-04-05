@@ -1,10 +1,12 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConstants {
   // Google Places API
-  static const String placesApiKey = 'YOUR_PLACES_API_KEY';
+  static String get placesApiKey => dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
   static const String placesBaseUrl = 'https://maps.googleapis.com/maps/api/place';
   
   // OpenAI API
-  static const String openAiApiKey = 'YOUR_OPENAI_API_KEY';
+  static String get openAiApiKey => dotenv.env['OPENAI_API_KEY'] ?? '';
   static const String openAiBaseUrl = 'https://api.openai.com/v1';
   
   // API Endpoints

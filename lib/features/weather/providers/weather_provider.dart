@@ -36,21 +36,40 @@ class WeatherData {
       },
     );
   }
+
+  factory WeatherData.fromOpenWeatherMap(Map<String, dynamic> json, String location) {
+    final main = json['main'] as Map<String, dynamic>;
+    final weather = (json['weather'] as List).first as Map<String, dynamic>;
+    
+    return WeatherData(
+      location: location,
+      temperature: (main['temp'] as num).toDouble(),
+      condition: weather['main'],
+      iconUrl: 'https://openweathermap.org/img/wn/${weather['icon']}@2x.png',
+      details: {
+        'feelsLike': main['feels_like'],
+        'humidity': main['humidity'],
+        'windSpeed': json['wind']['speed'],
+        'pressure': main['pressure'],
+        'description': weather['description'],
+      },
+    );
+  }
 }
 
 // Mock weather data for demo purposes
 WeatherData getMockWeatherData(String location) {
   return WeatherData(
     location: location,
-    temperature: 32,
-    condition: 'Sunny',
-    iconUrl: 'https://cdn.weatherapi.com/weather/64x64/day/113.png',
+    temperature: 22,
+    condition: 'Clear',
+    iconUrl: 'https://openweathermap.org/img/wn/01d@2x.png',
     details: {
-      'feelsLike': 34,
-      'humidity': 45,
-      'windSpeed': 19,
-      'uv': 6,
-      'precip': 0,
+      'feelsLike': 23,
+      'humidity': 65,
+      'windSpeed': 5.2,
+      'pressure': 1013,
+      'description': 'clear sky',
     },
   );
 }
@@ -66,9 +85,9 @@ final weatherProvider = FutureProvider.autoDispose<WeatherData?>((ref) async {
   debugPrint('🌤️ Weather location: $locationState');
   
   // Use real API if key is available
-  if (apiKey.isNotEmpty && apiKey != 'YOUR_ACTUAL_API_KEY_HERE') {
+  if (apiKey.isNotEmpty) {
     try {
-      final url = 'https://api.weatherapi.com/v1/current.json?key=$apiKey&q=$locationState&aqi=no';
+      final url = 'https://api.openweathermap.org/data/2.5/weather?q=$locationState&appid=$apiKey&units=metric';
       debugPrint('🌤️ Weather URL: $url');
       
       final response = await http.get(Uri.parse(url));
@@ -77,7 +96,7 @@ final weatherProvider = FutureProvider.autoDispose<WeatherData?>((ref) async {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         debugPrint('🌤️ Weather API response: ${response.body.substring(0, response.body.length > 100 ? 100 : response.body.length)}...');
-        return WeatherData.fromJson(data, locationState);
+        return WeatherData.fromOpenWeatherMap(data, locationState);
       } else {
         debugPrint('🌤️ Weather API error: ${response.body}');
         throw Exception('Failed to load weather data: ${response.statusCode}');

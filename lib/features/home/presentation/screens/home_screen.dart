@@ -26,6 +26,7 @@ import 'package:wandermood/features/auth/providers/user_provider.dart';
 import 'package:wandermood/features/weather/providers/weather_provider.dart';
 import 'package:wandermood/features/home/presentation/widgets/moody_character.dart';
 import 'package:wandermood/features/plans/presentation/screens/plan_result_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -691,7 +692,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
+        height: MediaQuery.of(context).size.height * 0.35,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
@@ -706,110 +707,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               margin: const EdgeInsets.only(top: 12, bottom: 8),
               width: 40,
               height: 4,
-          decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.grey.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
             
-            // Title
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Choose Location',
-                style: GoogleFonts.museoModerno(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF5BB32A),
-                ),
-              ),
-            ),
-            
-            // Search box
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search locations...',
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF5BB32A)),
-                  filled: true,
-                  fillColor: Colors.grey.withOpacity(0.1),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ),
-            
             // Current location button
-            InkWell(
-              onTap: () {
-                ref.read(locationNotifierProvider.notifier).getCurrentLocation();
-                Navigator.pop(context);
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF5BB32A).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                      children: [
-                    const Icon(Icons.my_location, color: Color(0xFF5BB32A)),
-                    const SizedBox(width: 12),
-          Text(
-                      'Use my current location',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF5BB32A),
-                          ),
-                        ),
-                      ],
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'We use your current location to provide the most relevant recommendations.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                     ),
-              ),
-            ),
-            
-            // Divider with label
-                  Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Text(
-                      'Popular Cities',
-                      style: GoogleFonts.poppins(
-                                fontSize: 12,
-                        color: Colors.grey,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'For the best experience, please enable location access.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // First, try to get location
+                      ref.read(locationNotifierProvider.notifier).getCurrentLocation();
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.my_location),
+                    label: const Text('Use Current Location'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                  const Expanded(child: Divider()),
-                        ],
-                      ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final openResult = await Geolocator.openLocationSettings();
+                      if (!openResult) {
+                        // If we can't open settings directly, at least guide the user
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enable location in your device settings to continue.'),
+                              duration: Duration(seconds: 5),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.settings, size: 18),
+                    label: const Text('Open Location Settings'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[600],
                     ),
-            
-            // Popular cities list
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                children: [
-                  _buildCityItem('San Francisco', Icons.location_city, ref),
-                  _buildCityItem('New York', Icons.location_city, ref),
-                  _buildCityItem('Tokyo', Icons.location_city, ref),
-                  _buildCityItem('London', Icons.location_city, ref),
-                  _buildCityItem('Paris', Icons.location_city, ref),
-                  _buildCityItem('Rome', Icons.location_city, ref),
+                  ),
                 ],
               ),
             ),
-            ],
-          ),
+          ],
+        ),
       ),
     );
   }
@@ -817,7 +786,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   Widget _buildCityItem(String cityName, IconData icon, WidgetRef ref) {
     return InkWell(
               onTap: () {
-        ref.read(locationNotifierProvider.notifier).setLocation(cityName);
+        // Now we always use current location instead of setting a specific city
+        ref.read(locationNotifierProvider.notifier).getCurrentLocation();
         Navigator.pop(context);
               },
         child: Container(

@@ -6,6 +6,7 @@ import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import '../../../shared/widgets/moody_character.dart';
 import '../../providers/preferences_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LocationSelectionScreen extends ConsumerStatefulWidget {
   const LocationSelectionScreen({super.key});
@@ -120,7 +121,7 @@ class _LocationSelectionScreenState extends ConsumerState<LocationSelectionScree
                   ),
                   child: GooglePlaceAutoCompleteTextField(
                     textEditingController: _searchController,
-                    googleAPIKey: "YOUR_GOOGLE_API_KEY",
+                    googleAPIKey: dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '',
                     inputDecoration: InputDecoration(
                       hintText: 'Search location...',
                       hintStyle: GoogleFonts.poppins(

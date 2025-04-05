@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../models/weather_location.dart';
 
 part 'weather.freezed.dart';
 part 'weather.g.dart';
@@ -10,6 +11,7 @@ class Weather with _$Weather {
     required double temperature,
     required int humidity,
     required double windSpeed,
+    required WeatherLocation location,
     String? icon,
     String? description,
     double? feelsLike,

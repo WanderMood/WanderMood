@@ -296,7 +296,7 @@ class LocationDialog extends ConsumerWidget {
     );
 
     if (result != null && result.isNotEmpty) {
-      await ref.read(locationNotifierProvider.notifier).setLocation(result);
+      await ref.read(locationNotifierProvider.notifier).getCurrentLocation();
     }
   }
 } 

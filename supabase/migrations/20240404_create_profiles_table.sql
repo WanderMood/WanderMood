@@ -46,6 +46,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 
 -- Create policies
 CREATE POLICY "Users can view their own profile" 
@@ -62,6 +63,11 @@ CREATE POLICY "Public profiles are viewable by everyone"
     ON public.profiles 
     FOR SELECT 
     USING (is_public = true OR auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile"
+    ON public.profiles
+    FOR INSERT
+    WITH CHECK (auth.uid() = id);
 
 -- Create or replace the function to update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -9,7 +9,7 @@ class ExploreScreen extends ConsumerWidget {
   const ExploreScreen({super.key});
 
   void _handleLocationSelected(WidgetRef ref, Location location) {
-    ref.read(locationNotifierProvider.notifier).setLocation(location.name);
+    ref.read(locationNotifierProvider.notifier).getCurrentLocation();
   }
 
   @override

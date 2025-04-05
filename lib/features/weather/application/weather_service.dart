@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/models/weather_data.dart';
@@ -26,29 +27,23 @@ class DateRange {
 @riverpod
 class WeatherService extends _$WeatherService {
   final _cacheService = WeatherCacheService();
-  bool _isInitialized = false;
-
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await _cacheService.init();
-      _isInitialized = true;
-    }
-  }
+  static const String _baseUrl = 'https://api.openweathermap.org/data/2.5';
+  String get _apiKey => dotenv.env['OPENWEATHER_API_KEY'] ?? '';
 
   @override
   FutureOr<Weather?> build() async {
-    await _ensureInitialized();
     final locationState = ref.watch(locationNotifierProvider);
     
     return locationState.when(
       data: (location) async {
         if (location == null) return null;
-        return getCurrentWeather(WeatherLocation(
+        final locationData = WeatherLocation(
           id: location.toLowerCase(),
           name: location,
-          latitude: 52.3676, // Amsterdam coordinates for testing
-          longitude: 4.9041,
-        ));
+          latitude: 0,
+          longitude: 0,
+        );
+        return getCurrentWeather(locationData);
       },
       loading: () => null,
       error: (_, __) => null,
@@ -57,13 +52,16 @@ class WeatherService extends _$WeatherService {
 
   Future<Weather> getCurrentWeather(WeatherLocation location) async {
     try {
-      final url = ApiConfig.currentWeatherEndpoint(location.latitude, location.longitude);
-      print('Fetching current weather from: $url');
+      if (_apiKey.isEmpty) {
+        throw Exception('OpenWeather API key is not configured');
+      }
+
+      final url = '$_baseUrl/weather?lat=${location.latitude}&lon=${location.longitude}&appid=$_apiKey&units=metric';
+      print('Fetching weather from: $url');
       
       final response = await http.get(Uri.parse(url));
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
+      print('Weather API response code: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return Weather(
@@ -79,14 +77,15 @@ class WeatherService extends _$WeatherService {
           pressure: data['main']['pressure'],
           sunrise: DateTime.fromMillisecondsSinceEpoch(data['sys']['sunrise'] * 1000),
           sunset: DateTime.fromMillisecondsSinceEpoch(data['sys']['sunset'] * 1000),
+          location: location,
         );
       } else {
-        print('Error response: ${response.body}');
-        throw Exception('Failed to load current weather: ${response.statusCode}');
+        print('Weather API error: ${response.body}');
+        throw Exception('Failed to load weather data: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching current weather: $e');
-      throw Exception('Failed to load current weather: $e');
+      print('Error fetching weather: $e');
+      throw Exception('Failed to load weather data: $e');
     }
   }
 
@@ -95,13 +94,17 @@ class WeatherService extends _$WeatherService {
     int days = 5,
   }) async {
     try {
+      if (_apiKey.isEmpty) {
+        throw Exception('OpenWeather API key is not configured');
+      }
+
       // Try to load cached forecasts first
       final cachedForecasts = await _cacheService.getCachedForecasts(location);
       if (cachedForecasts != null) {
         return cachedForecasts;
       }
 
-      final url = ApiConfig.forecastEndpoint(location.latitude, location.longitude);
+      final url = '$_baseUrl/forecast?lat=${location.latitude}&lon=${location.longitude}&appid=$_apiKey&units=metric';
       print('Fetching forecast from: $url');
       
       final response = await http.get(Uri.parse(url));

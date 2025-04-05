@@ -3,6 +3,7 @@ import 'package:wandermood/features/location/services/location_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart';
 
 part 'location_provider.g.dart';
 
@@ -10,6 +11,7 @@ part 'location_provider.g.dart';
 class LocationNotifier extends AutoDisposeAsyncNotifier<String?> {
   @override
   FutureOr<String?> build() async {
+    // Always get current location on initialization
     return getCurrentLocation();
   }
 
@@ -21,18 +23,21 @@ class LocationNotifier extends AutoDisposeAsyncNotifier<String?> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          debugPrint('Location permission denied');
           state = const AsyncValue.data(null);
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        debugPrint('Location permission permanently denied');
         state = const AsyncValue.data(null);
         return null;
       }
 
       // Get current position
       final position = await Geolocator.getCurrentPosition();
+      debugPrint('Got position: ${position.latitude}, ${position.longitude}');
 
       // Get place name from coordinates
       final placemarks = await placemarkFromCoordinates(
@@ -46,36 +51,24 @@ class LocationNotifier extends AutoDisposeAsyncNotifier<String?> {
                         place.subAdministrativeArea ?? 
                         place.administrativeArea;
         if (cityName != null) {
+          debugPrint('Found city name: $cityName');
           state = AsyncValue.data(cityName);
           return cityName;
         }
       }
 
+      debugPrint('Could not determine city name');
       state = const AsyncValue.data(null);
       return null;
     } catch (e) {
+      debugPrint('Error getting location: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return null;
     }
   }
 
-  Future<void> setLocation(String cityName) async {
-    state = const AsyncValue.loading();
-    try {
-      // Validate city exists by trying to get coordinates
-      final locations = await locationFromAddress(cityName);
-      if (locations.isNotEmpty) {
-        state = AsyncValue.data(cityName);
-      } else {
-        state = const AsyncValue.error("City not found", StackTrace.empty);
-      }
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-    }
-  }
-
+  // Method to retry getting location
   Future<void> retryLocationAccess() async {
-    state = const AsyncValue.loading();
     await getCurrentLocation();
   }
 } 
