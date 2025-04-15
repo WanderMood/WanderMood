@@ -76,39 +76,47 @@ WeatherData getMockWeatherData(String location) {
 
 // Weather provider that depends on location
 final weatherProvider = FutureProvider.autoDispose<WeatherData?>((ref) async {
-  final locationState = await ref.watch(locationNotifierProvider.future);
-  if (locationState == null) return null;
-  
-  // Get API key from environment
-  final apiKey = dotenv.env['OPENWEATHER_API_KEY'] ?? '';
-  debugPrint('🌤️ Weather API Key: ${apiKey.isEmpty ? 'EMPTY' : 'EXISTS (${apiKey.length} chars)'}');
-  debugPrint('🌤️ Weather location: $locationState');
-  
-  // Use real API if key is available
-  if (apiKey.isNotEmpty) {
-    try {
-      final url = 'https://api.openweathermap.org/data/2.5/weather?q=$locationState&appid=$apiKey&units=metric';
-      debugPrint('🌤️ Weather URL: $url');
-      
-      final response = await http.get(Uri.parse(url));
-      debugPrint('🌤️ Weather API response code: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        debugPrint('🌤️ Weather API response: ${response.body.substring(0, response.body.length > 100 ? 100 : response.body.length)}...');
-        return WeatherData.fromOpenWeatherMap(data, locationState);
-      } else {
-        debugPrint('🌤️ Weather API error: ${response.body}');
-        throw Exception('Failed to load weather data: ${response.statusCode}');
-      }
-    } catch (e) {
-      // Return mock data if API fails
-      debugPrint('🌤️ Weather API exception: $e');
-      return getMockWeatherData(locationState);
+  try {
+    final locationState = ref.watch(locationNotifierProvider);
+    
+    if (locationState.isLoading) {
+      return getMockWeatherData('Loading...');
     }
-  } else {
-    // Use mock data if no valid API key
-    debugPrint('🌤️ Using mock data: No valid API key');
-    return getMockWeatherData(locationState);
+    
+    if (locationState.hasError) {
+      throw locationState.error!;
+    }
+    
+    if (!locationState.hasCity) {
+      return getMockWeatherData('Unknown Location');
+    }
+
+    final apiKey = dotenv.env['OPENWEATHER_API_KEY'];
+    if (apiKey == null) {
+      debugPrint('⚠️ OpenWeather API key not found');
+      return getMockWeatherData(locationState.city!);
+    }
+
+    final url = Uri.https(
+      'api.openweathermap.org',
+      '/data/2.5/weather',
+      {
+        'q': locationState.city,
+        'appid': apiKey,
+        'units': 'metric',
+      },
+    );
+
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return WeatherData.fromOpenWeatherMap(data, locationState.city!);
+    } else {
+      debugPrint('⚠️ Weather API error: ${response.statusCode}');
+      return getMockWeatherData(locationState.city!);
+    }
+  } catch (e) {
+    debugPrint('❌ Error getting weather: $e');
+    return getMockWeatherData('Unknown Location');
   }
 }); 

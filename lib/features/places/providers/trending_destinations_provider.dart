@@ -94,7 +94,8 @@ class TrendingDestinations extends _$TrendingDestinations {
       final results = await service.searchPlaces('tourist attractions in $cityName');
       if (results.isNotEmpty) {
         debugPrint('✅ Found ${results.length} tourist attractions in $cityName');
-        allResults.addAll(results.take(8));
+        // Convert each result to a PlacesSearchResult temporarily to maintain compatibility
+        allResults.addAll(results.map(_mapToPlacesSearchResult).toList().take(8));
       }
     } catch (e) {
       debugPrint('❌ Error fetching tourist attractions: $e');
@@ -133,9 +134,16 @@ class TrendingDestinations extends _$TrendingDestinations {
     return true;
   }
 
-  String _generateDescription(PlacesSearchResult result) {
-    final types = result.types;
-    if (types.isEmpty) return 'Discover this interesting location in Rotterdam';
+  String _generateDescription(dynamic result) {
+    List<String> types = [];
+    
+    if (result is PlacesSearchResult) {
+      types = result.types;
+    } else if (result is Map<String, dynamic>) {
+      types = (result['types'] as List<dynamic>?)?.cast<String>() ?? [];
+    }
+    
+    if (types.isEmpty) return 'Discover this interesting location';
 
     if (types.contains('museum')) {
       return 'Explore art and culture at this renowned museum';
@@ -169,42 +177,120 @@ class TrendingDestinations extends _$TrendingDestinations {
     return double.parse(distance.toStringAsFixed(1)); // Round to 1 decimal place
   }
 
-  List<Place> _convertToPlaces(List<PlacesSearchResult> results) {
+  // Helper to convert Map<String, dynamic> to PlacesSearchResult
+  PlacesSearchResult _mapToPlacesSearchResult(Map<String, dynamic> resultMap) {
+    // Maak een nieuwe PlacesSearchResult met alleen de benodigde velden
+    return PlacesSearchResult(
+      name: resultMap['name'] ?? '',
+      placeId: resultMap['placeId'] ?? '',
+      reference: resultMap['placeId'] ?? '',
+      types: (resultMap['types'] as List<dynamic>?)?.cast<String>() ?? [],
+      formattedAddress: resultMap['address'],
+      vicinity: resultMap['address'],
+      rating: resultMap['rating'] as double?,
+      geometry: Geometry(
+        location: Location(
+          lat: (resultMap['location']?['lat'] as num?)?.toDouble() ?? 0.0,
+          lng: (resultMap['location']?['lng'] as num?)?.toDouble() ?? 0.0,
+        )
+      ),
+      photos: (resultMap['photos'] as List<dynamic>?)?.map((photo) => 
+        Photo(
+          photoReference: photo as String,
+          height: 400,
+          width: 600,
+          htmlAttributions: const [],
+        )
+      ).toList() ?? [],
+      // Gebruik null voor priceLevel om het probleem te omzeilen
+      priceLevel: null,
+      openingHours: null,
+    );
+  }
+
+  List<Place> _convertToPlaces(List<dynamic> results) {
     final apiKey = dotenv.env['GOOGLE_PLACES_API_KEY'];
-    return results.map((result) {
-      final lat = result.geometry?.location.lat;
-      final lng = result.geometry?.location.lng;
-      final distance = _calculateDistance(lat, lng);
+    return results.map((dynamic result) {
+      if (result is PlacesSearchResult) {
+        final lat = result.geometry?.location.lat;
+        final lng = result.geometry?.location.lng;
+        final distance = _calculateDistance(lat, lng);
 
-      // Extract photo references directly
-      List<String> photoReferences = [];
-      if (result.photos != null && result.photos.isNotEmpty) {
-        debugPrint('📸 Found ${result.photos.length} photos for ${result.name}');
-        photoReferences = result.photos
-            .where((photo) => photo.photoReference != null && photo.photoReference!.isNotEmpty)
-            .map((photo) => photo.photoReference!)
-            .toList();
+        // Extract photo references directly
+        List<String> photoReferences = [];
+        if (result.photos != null && result.photos.isNotEmpty) {
+          debugPrint('📸 Found ${result.photos.length} photos for ${result.name}');
+          photoReferences = result.photos
+              .where((photo) => photo.photoReference != null && photo.photoReference!.isNotEmpty)
+              .map((photo) => photo.photoReference!)
+              .toList();
+        } else {
+          debugPrint('⚠️ No photos found for ${result.name}');
+        }
+
+        // Handle the address safely
+        final address = result.formattedAddress ?? result.vicinity ?? 'No address available';
+
+        return Place(
+          id: 'google_${result.placeId}',
+          name: result.name,
+          address: address,
+          location: PlaceLocation(
+            lat: result.geometry?.location.lat ?? 0.0,
+            lng: result.geometry?.location.lng ?? 0.0,
+          ),
+          rating: (result.rating ?? 0.0).toDouble(),
+          photos: photoReferences.isNotEmpty ? photoReferences : [], 
+          types: result.types,
+          description: _generateDescription(result),
+          isAsset: false,
+        );
+      } else if (result is Map<String, dynamic>) {
+        final lat = (result['location']?['lat'] as num?)?.toDouble();
+        final lng = (result['location']?['lng'] as num?)?.toDouble();
+        final distance = _calculateDistance(lat, lng);
+
+        // Extract photo references directly from the map
+        List<String> photoReferences = (result['photos'] as List<dynamic>?)?.cast<String>() ?? [];
+        
+        if (photoReferences.isEmpty) {
+          debugPrint('⚠️ No photos found for ${result['name']}');
+        } else {
+          debugPrint('📸 Found ${photoReferences.length} photos for ${result['name']}');
+        }
+
+        // Handle the address safely
+        final address = result['address'] ?? 'No address available';
+
+        return Place(
+          id: 'google_${result['placeId']}',
+          name: result['name'] ?? 'Unknown Place',
+          address: address,
+          location: PlaceLocation(
+            lat: lat ?? 0.0,
+            lng: lng ?? 0.0,
+          ),
+          rating: (result['rating'] as num?)?.toDouble() ?? 0.0,
+          photos: photoReferences,
+          types: (result['types'] as List<dynamic>?)?.cast<String>() ?? [],
+          description: result['description'] ?? 'A popular destination',
+          isAsset: false,
+        );
       } else {
-        debugPrint('⚠️ No photos found for ${result.name}');
+        // Return a placeholder if the type is neither PlacesSearchResult nor Map
+        debugPrint('⚠️ Unexpected result type: ${result.runtimeType}');
+        return Place(
+          id: 'unknown_${DateTime.now().millisecondsSinceEpoch}',
+          name: 'Unknown Place',
+          address: 'No address available',
+          location: const PlaceLocation(lat: 0.0, lng: 0.0),
+          rating: 0.0,
+          photos: [],
+          types: [],
+          description: 'Unknown destination',
+          isAsset: false,
+        );
       }
-
-      // Handle the address safely
-      final address = result.formattedAddress ?? result.vicinity ?? 'No address available';
-
-      return Place(
-        id: 'google_${result.placeId}',
-        name: result.name,
-        address: address,
-        location: PlaceLocation(
-          lat: result.geometry?.location.lat ?? 0.0,
-          lng: result.geometry?.location.lng ?? 0.0,
-        ),
-        rating: (result.rating ?? 0.0).toDouble(),
-        photos: photoReferences.isNotEmpty ? photoReferences : [], 
-        types: result.types,
-        description: _generateDescription(result),
-        isAsset: false,
-      );
     }).toList();
   }
 

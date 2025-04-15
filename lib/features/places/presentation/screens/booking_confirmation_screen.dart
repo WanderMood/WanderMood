@@ -5,10 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wandermood/core/theme/app_theme.dart';
 import '../../models/place.dart';
+import '../../services/places_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-class BookingConfirmationScreen extends StatefulWidget {
+class BookingConfirmationScreen extends ConsumerStatefulWidget {
   final Place place;
   final String bookingOption;
   final int quantity;
@@ -25,10 +28,10 @@ class BookingConfirmationScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BookingConfirmationScreen> createState() => _BookingConfirmationScreenState();
+  ConsumerState<BookingConfirmationScreen> createState() => _BookingConfirmationScreenState();
 }
 
-class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
+class _BookingConfirmationScreenState extends ConsumerState<BookingConfirmationScreen> {
   final String _bookingNumber = _generateBookingNumber();
   bool _isTicketSaved = false;
 
@@ -94,6 +97,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the places service
+    final placesService = ref.read(placesServiceProvider.notifier);
+    
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -205,11 +211,13 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                             ),
                             child: Stack(
                               children: [
-                                Image.asset(
-                                  widget.place.photos.first,
+                                CachedNetworkImage(
+                                  imageUrl: placesService.getPlacePhotoUrl(
+                                    widget.place.photos.isNotEmpty ? widget.place.photos.first : null,
+                                  ),
+                                  fit: BoxFit.cover,
                                   height: 150,
                                   width: double.infinity,
-                                  fit: BoxFit.cover,
                                 ),
                                 Positioned.fill(
                                   child: Container(

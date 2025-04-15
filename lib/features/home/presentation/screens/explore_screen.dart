@@ -13,6 +13,15 @@ import 'package:wandermood/features/places/providers/explore_places_provider.dar
 import 'package:wandermood/features/places/providers/trending_destinations_provider.dart';
 import 'package:wandermood/features/places/services/places_service.dart';
 import 'dart:math' show min;
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:wandermood/features/places/widgets/place_image.dart';
+import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
+import 'dart:math';
+import '../../../places/providers/filtered_places_provider.dart';
+import '../../../places/providers/places_cache_provider.dart';
+import '../../../mood/providers/current_mood_provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -29,6 +38,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   String _searchQuery = '';
   List<String> _filteredSuggestions = [];
   bool _isListening = false;
+  int _currentPage = 0;
+  bool _isLoadingMore = false;
   
   final List<String> _recentSearches = [
     'Restaurants near Markthal',
@@ -62,11 +73,188 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final List<String> _categories = [
     'All',
     'Popular',
+    'Accommodations',
     'Nature',
     'Culture',
     'Food',
     'Activities',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent * 0.8 && !_isLoadingMore) {
+      _loadMorePlaces();
+    }
+  }
+
+  Future<void> _loadMorePlaces() async {
+    if (_isLoadingMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+      _currentPage++;
+    });
+
+    // The filtered places provider will handle the actual loading
+    await Future.delayed(const Duration(milliseconds: 500)); // Debounce
+
+    setState(() {
+      _isLoadingMore = false;
+    });
+  }
+
+  // Updated to use places from API providers
+  List<Map<String, dynamic>> get filteredItems {
+    // Get places from providers
+    final locationState = ref.watch(locationNotifierProvider);
+    final city = locationState.city ?? 'Rotterdam';
+    
+    final trendingPlaces = ref.watch(trendingDestinationsProvider(city: city)).value ?? [];
+    final explorePlaces = ref.watch(explorePlacesProvider(city: city)).value ?? [];
+    
+    // Convert Place objects to Map for consistency with existing code
+    final List<Map<String, dynamic>> allItems = [
+      ...trendingPlaces.map((place) => _convertPlaceToMap(place)).toList(),
+      ...explorePlaces.map((place) => _convertPlaceToMap(place)).toList(),
+    ];
+    
+    if (_selectedCategory == 'All') {
+      return allItems;
+    } else if (_selectedCategory == 'Accommodations') {
+      return allItems.where((item) => 
+        (item['categories'] as List?)?.contains('Accommodations') == true ||
+        (item['types'] as List?)?.contains('lodging') == true
+      ).toList();
+    }
+    
+    return allItems.where((item) => 
+      (item['categories'] as List?)?.contains(_selectedCategory) == true ||
+      (item['types'] as List?)?.any((type) => type.toString().toLowerCase().contains(_selectedCategory.toLowerCase())) == true
+    ).toList();
+  }
+  
+  // Helper method to convert Place object to Map - optimized for performance
+  Map<String, dynamic> _convertPlaceToMap(dynamic place) {
+    if (place is Place) {
+      final locationState = ref.read(locationNotifierProvider);
+      String distance = '-- km';
+      
+      // Calculate distance if we have both coordinates
+      if (locationState.hasLocation &&
+          place.location != null) {
+        final distanceInKm = Geolocator.distanceBetween(
+          locationState.currentLatitude!,
+          locationState.currentLongitude!,
+          place.location.lat,
+          place.location.lng
+        ) / 1000; // Convert meters to kilometers
+        
+        // Round to 1 decimal place if less than 10km, otherwise round to whole number
+        distance = distanceInKm < 10 
+          ? '${distanceInKm.toStringAsFixed(1)} km'
+          : '${distanceInKm.round()} km';
+      }
+      
+      // Pre-populate activities for faster display
+      final activities = _generateActivitiesFromTypes(place.types ?? []);
+      
+      // Extract city only once
+      final locationName = _extractCityName(place.address);
+      
+      return {
+        'name': place.name,
+        'location': locationName, 
+        'flag': '🇳🇱',
+        'distance': distance,
+        'rating': place.rating ?? 4.0,
+        'place_id': place.id,
+        'photos': place.photos ?? [],
+        'categories': place.types ?? ['Other'],
+        'types': place.types ?? [],
+        'activities': activities,
+        'description': place.description ?? 'Explore this amazing destination',
+        'isFavorite': false,
+        'latitude': place.location?.lat,
+        'longitude': place.location?.lng,
+      };
+    } else if (place is Map) {
+      return place as Map<String, dynamic>;
+    } else {
+      return {
+        'name': 'Unknown Place',
+        'location': 'Unknown',
+        'flag': '🇳🇱',
+        'distance': '-- km',
+        'rating': 4.0,
+        'photos': [],
+        'categories': ['Other'],
+        'activities': [{'name': 'Explore', 'icon': '🔍'}],
+        'description': 'Discover this location',
+        'isFavorite': false,
+      };
+    }
+  }
+  
+  // Calculate distance between two coordinates in kilometers
+  double _calculateDistance(
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  ) {
+    return Geolocator.distanceBetween(
+      startLat,
+      startLng,
+      endLat,
+      endLng,
+    ) / 1000; // Convert meters to kilometers
+  }
+
+  // Helper to generate activities from place types
+  List<Map<String, dynamic>> _generateActivitiesFromTypes(List<String> types) {
+    final activities = <Map<String, dynamic>>[];
+    
+    if (types.contains('restaurant') || types.contains('food')) {
+      activities.add({'name': 'Dining', 'icon': '🍽️'});
+    }
+    if (types.contains('museum')) {
+      activities.add({'name': 'Museum', 'icon': '🏛️'});
+    }
+    if (types.contains('park')) {
+      activities.add({'name': 'Nature', 'icon': '🌳'});
+    }
+    if (types.contains('tourist_attraction')) {
+      activities.add({'name': 'Tourist Spot', 'icon': '📸'});
+    }
+    if (types.contains('shopping_mall') || types.contains('store')) {
+      activities.add({'name': 'Shopping', 'icon': '🛍️'});
+    }
+    if (types.contains('bar')) {
+      activities.add({'name': 'Nightlife', 'icon': '🍸'});
+    }
+    if (types.contains('lodging') || types.contains('hotel')) {
+      activities.add({'name': 'Hotel', 'icon': '🏨'});
+    }
+    
+    // Add default activity if none were added
+    if (activities.isEmpty) {
+      activities.add({'name': 'Explore', 'icon': '🔍'});
+    }
+    
+    return activities;
+  }
 
   void _startVoiceSearch() {
     // TODO: Implement voice search
@@ -115,128 +303,469 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the location state for changes
     final locationState = ref.watch(locationNotifierProvider);
-    final currentLocation = locationState.value ?? 'Rotterdam';
+    final currentMood = ref.watch(currentMoodProvider);
     
-    // More aggressive invalidation approach
-    ref.listen(locationNotifierProvider, (previous, next) {
-      if (previous?.value != next.value && next.value != null) {
-        debugPrint('🌍 Location changed from ${previous?.value} to ${next.value}, forcing refresh');
-        
-        // Force clear all caches
-        ref.invalidate(trendingDestinationsProvider);
-        ref.invalidate(explorePlacesProvider);
-        
-        // Give visual feedback that we're updating
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Loading destinations for ${next.value}...'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: const Color(0xFF12B347),
-          ),
-        );
-      }
-    });
-    
-    // Pass the current location to the providers to ensure they use the right city
-    final trendingDestinations = ref.watch(trendingDestinationsProvider(city: currentLocation));
-    final explorePlaces = ref.watch(explorePlacesProvider(city: currentLocation));
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFAF9F6), // Light cream/off-white background color
+    if (locationState.isLoading) {
+      return const SwirlBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(child: CircularProgressIndicator()),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header with Location and Title
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Explore',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF12B347),
-                      ),
-                    ),
-                    const LocationDropdown(),
-                  ],
+      );
+    }
+    
+    if (locationState.hasError) {
+      return SwirlBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error: ${locationState.error}'),
+                ElevatedButton(
+                  onPressed: () {
+                    ref.read(locationNotifierProvider.notifier).retryLocationAccess();
+                  },
+                  child: const Text('Retry'),
                 ),
-              ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2, end: 0),
-              
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildSearchBar(),
-              ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: -0.2, end: 0),
-              
-              // Category Filters
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                child: Row(
-                  children: _categories.map((category) => _buildCategoryChip(category)).toList(),
-                ),
-              ).animate().fadeIn(duration: 600.ms, delay: 400.ms).slideX(begin: -0.2, end: 0),
-              
-              // Content Area
-              Expanded(
-                child: trendingDestinations.when(
-                  data: (trending) => explorePlaces.when(
-                    data: (places) => ListView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16.0),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (!locationState.hasCity) {
+      return const SwirlBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(child: Text('No location selected')),
+        ),
+      );
+    }
+    
+    // Get all places for the current city
+    final explorePlaces = ref.watch(explorePlacesProvider(city: locationState.city!));
+    
+    return explorePlaces.when(
+      loading: () => const SwirlBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (error, stack) => SwirlBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(child: Text('Error: $error')),
+        ),
+      ),
+      data: (places) {
+        if (places.isEmpty) {
+          return SwirlBackground(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Center(
+                child: Text('No places found for ${locationState.city}'),
+              ),
+            ),
+          );
+        }
+        
+        // Apply filtering here - much faster than in build()
+        final filteredPlaces = _filterPlacesByMood(places, currentMood);
+        
+        // Convert places to map format for compatibility with existing code
+        final items = filteredPlaces.map((place) => _convertPlaceToMap(place)).toList();
+        
+        return SwirlBackground(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Trending Section
-                        _buildSectionTitle('Trending Now'),
-                        const SizedBox(height: 12),
-                        trending.isEmpty
-                            ? _buildEmptyStateMessage('No trending places found', 'Try changing your location or check back later.')
-                            : SizedBox(
-                                height: 180,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: trending.length,
-                                  itemBuilder: (context, index) => _buildTrendingCard(trending[index])
-                                      .animate(delay: Duration(milliseconds: 100 * index))
-                                      .fadeIn(duration: 600.ms)
-                                      .slideX(begin: 0.2, end: 0),
-                                ),
-                              ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Popular Destinations
-                        _buildSectionTitle('Popular Destinations'),
-                        const SizedBox(height: 12),
-                        places.isEmpty
-                            ? _buildEmptyStateMessage('No popular destinations found', 'Try changing your search filters.')
-                            : Column(
-                                children: places.map((place) => _buildDestinationCard(place)
-                                    .animate()
-                                    .fadeIn(duration: 600.ms)
-                                    .slideY(begin: 0.2, end: 0)).toList(),
-                              ),
+                        Text(
+                          'Explore',
+                          style: GoogleFonts.museoModerno(
+                            fontSize: 42,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF12B347),
+                          ),
+                        ),
+                        const LocationDropdown(),
                       ],
                     ),
-                    loading: () => _buildLoadingState(),
-                    error: (error, stack) => _buildErrorState(error),
                   ),
-                  loading: () => _buildLoadingState(),
-                  error: (error, stack) => _buildErrorState(error),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _buildSearchBar(),
+                  ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                    child: Row(
+                      children: _categories.map((category) => _buildCategoryChip(category)).toList(),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: items.length + (_isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= items.length) {
+                          if (_isLoadingMore) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          return null;
+                        }
+                        return _buildListItem(items[index], index);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlacesList(List<Place> places) {
+    return SwirlBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverAppBar(
+              title: Text(
+                'Explore',
+                style: GoogleFonts.museoModerno(
+                  fontSize: 42,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF12B347),
+                ),
+              ),
+              actions: [
+                const LocationDropdown(),
+              ],
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index >= places.length) {
+                    if (_isLoadingMore) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    return null;
+                  }
+
+                  final place = places[index];
+                  return _buildListItem(_convertPlaceToMap(place), index);
+                },
+                childCount: places.length + (_isLoadingMore ? 1 : 0),
+                ),
+              ),
+            ],
+          ),
+        ),
+    );
+  }
+
+  Widget _buildListItem(Map<String, dynamic> item, int index) {
+    bool isFavorite = item['isFavorite'] ?? false;
+    final placesService = ref.read(placesServiceProvider.notifier);
+
+    // Get photo reference directly from the item
+    String? photoReference;
+    if (item['photos'] != null && (item['photos'] as List).isNotEmpty) {
+      final photoObject = (item['photos'] as List).first;
+      if (photoObject is Map<String, dynamic> && photoObject['photo_reference'] != null) {
+        photoReference = photoObject['photo_reference'].toString();
+      } else if (photoObject is String) {
+        photoReference = photoObject;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    child: photoReference != null
+                      ? Image.network(
+                          ref.read(placesServiceProvider.notifier).getPlacePhotoUrl(photoReference),
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('❌ Error loading image: $error');
+                            return Container(
+                              height: 180,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image, color: Colors.grey),
+                            );
+                          },
+                        )
+                      : Container(
+                          height: 180,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.image, color: Colors.grey),
+                        ),
+                  ),
+                  if (item['isOpen'] == true)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Open Now',
+                          style: GoogleFonts.openSans(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.red : Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              item['isFavorite'] = !isFavorite;
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share, color: Colors.white),
+                          onPressed: () {
+                            Share.share('Check out ${item['name']} in ${item['location']}!');
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item['name'] ?? 'Unknown Place',
+                            style: GoogleFonts.openSans(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (item['rating'] != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.star, color: Colors.amber, size: 20),
+                              const SizedBox(width: 4),
+                              Text(
+                                item['rating'].toString(),
+                                style: GoogleFonts.openSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '\$\$\$ • ',
+                          style: GoogleFonts.openSans(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        Text(
+                          'Expensive',
+                          style: GoogleFonts.openSans(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          item['flag'] ?? '🇳🇱',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item['location'] ?? 'No address available',
+                            style: GoogleFonts.openSans(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 16,
+                          color: Color(0xFF12B347),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          item['distance'] ?? '7 km',
+                          style: GoogleFonts.openSans(
+                            fontSize: 14,
+                            color: Color(0xFF12B347),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item['description'] ?? 'No description available',
+                      style: GoogleFonts.openSans(
+                        fontSize: 14,
+                        color: Colors.grey[800],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final type in (item['types'] as List<String>? ?? []).take(3))
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _formatTypeWithEmoji(type),
+                              style: GoogleFonts.openSans(
+                                fontSize: 12,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ).animate()
+      .fadeIn(duration: 600.ms, delay: Duration(milliseconds: index * 100))
+      .slideY(begin: 0.2, end: 0, delay: Duration(milliseconds: index * 100));
+  }
+
+  String _formatTypeWithEmoji(String type) {
+    // Convert type to a more readable format and add emoji
+    final formattedTypes = {
+      'tourist_attraction': '🎯 Tourist Spot',
+      'restaurant': '🍽️ Restaurant',
+      'food': '🍳 Food',
+      'museum': '🏛️ Museum',
+      'park': '🌳 Park',
+      'shopping_mall': '🛍️ Shopping',
+      'store': '🏪 Store',
+      'bar': '🍸 Bar',
+      'lodging': '🏨 Hotel',
+      'hotel': '🏨 Hotel',
+      'cafe': '☕ Cafe',
+      'art_gallery': '🎨 Art Gallery',
+      'night_club': '🎉 Nightclub',
+      'gym': '💪 Gym',
+      'spa': '💆 Spa',
+      'bakery': '🥖 Bakery',
+      'church': '⛪ Church',
+      'zoo': '🦁 Zoo',
+      'aquarium': '🐠 Aquarium',
+      'amusement_park': '🎡 Amusement Park',
+      'library': '📚 Library',
+      'stadium': '🏟️ Stadium',
+      'historic': '🏺 Historic Site',
+      'landmark': '🗽 Landmark',
+    };
+
+    // Remove underscores and capitalize each word
+    String readable = type.replaceAll('_', ' ');
+    readable = readable.split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ');
+    
+    // Return formatted version if it exists, otherwise return capitalized version with a generic emoji
+    return formattedTypes[type] ?? '🌟 $readable';
   }
 
   Widget _buildSearchBar() {
@@ -498,8 +1027,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       if (place.photos.isNotEmpty) {
         photoUrl = place.isAsset
             ? place.photos.first // Already an asset path
-            : ref.read(placesServiceProvider.notifier).getPhotoUrl(place.photos.first);
-        debugPrint('📸 Got photo URL for ${place.name}: ${photoUrl.substring(0, min(photoUrl.length, 30))}...');
+            : ref.read(placesServiceProvider.notifier).getPlacePhotoUrl(place.photos.first);
+        if (photoUrl != null) {
+          debugPrint('📸 Got photo URL for ${place.name}: ${photoUrl.substring(0, min(photoUrl.length, 30))}...');
+        }
       } else {
         debugPrint('⚠️ No photos for ${place.name}');
       }
@@ -650,14 +1181,20 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     
     try {
       if (place.photos.isNotEmpty) {
-        photoUrl = ref.read(placesServiceProvider.notifier).getPhotoUrl(place.photos.first);
+        photoUrl = place.isAsset
+            ? place.photos.first
+            : ref.read(placesServiceProvider.notifier).getPlacePhotoUrl(place.photos.first);
       }
     } catch (e) {
       debugPrint('❌ Error getting photo URL for place: $e');
     }
 
     return GestureDetector(
-      onTap: () => context.push('/place/${place.id}'),
+      onTap: () {
+        // When a popular destination card is tapped, navigate to the Place Detail screen
+        debugPrint('🔍 Navigating to place detail: ${place.id} (${place.name})');
+        context.push('/place/${place.id}');
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -679,37 +1216,17 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   child: photoUrl != null
-                      ? Image.network(
-                          photoUrl,
+                      ? PlaceImage(
+                          photoReference: place.photos.isNotEmpty ? place.photos.first : null,
+                          placeType: place.types.isNotEmpty ? place.types.first : 'default',
                           height: 200,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            debugPrint('❌ Error loading place image: $error');
-                            // Use a fixed fallback image from picsum
-                            return Image.network(
-                              'https://picsum.photos/400/200?random=${place.id.hashCode}',
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                height: 200,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.image, color: Colors.grey),
-                              ),
-                            );
-                          },
                         )
-                      : Image.network(
-                          'https://picsum.photos/400/200?random=${place.hashCode}',
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
+                      : Container(
                             height: 200,
                             color: Colors.grey[300],
                             child: const Icon(Icons.image, color: Colors.grey),
-                          ),
                         ),
                 ),
                 Positioned(
@@ -886,7 +1403,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  Widget _buildActivityTag(IconData icon, String label) {
+  Widget _buildActivityTag(dynamic icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -899,7 +1416,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF12B347)),
+          icon is IconData 
+              ? Icon(icon, size: 16, color: const Color(0xFF12B347))
+              : Text(icon.toString(), style: const TextStyle(fontSize: 16)),
           const SizedBox(width: 6),
           Text(
             label,
@@ -915,11 +1434,29 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   String _extractCityName(String address) {
+    // If address is empty, return Unknown
+    if (address.trim().isEmpty) {
+      return 'Unknown';
+    }
+    
     // Common patterns: "Street, City, State ZIP, Country" or "City, Country"
     final parts = address.split(',').map((part) => part.trim()).toList();
     
     if (parts.length >= 2) {
-      // Try to get the city - typically the second-to-last element before country
+      // Try to get the city - check each part for known city names
+      final locationState = ref.read(locationNotifierProvider);
+      final currentCity = locationState.city?.toLowerCase() ?? '';
+      
+      // Check if any part contains the current city name (case insensitive)
+      if (currentCity.isNotEmpty) {
+        for (final part in parts) {
+          if (part.toLowerCase().contains(currentCity)) {
+            return part.trim();
+          }
+        }
+      }
+      
+      // Fallback approach: try to get the city - typically the second-to-last element before country
       // or the first element if it's a short format
       return parts.length >= 3 ? parts[parts.length - 2] : parts[0];
     }
@@ -1047,6 +1584,206 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAccommodationCard(Map<String, dynamic> accommodation) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image and Rating
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Image.network(
+                  ref.read(placesServiceProvider.notifier).getPlacePhotoUrl(accommodation['photo_reference']),
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    debugPrint('❌ Error loading accommodation image: $error');
+                    return Image.network(
+                      'https://picsum.photos/400/200?random=${accommodation['place_id'].hashCode}',
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.image, color: Colors.grey),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        accommodation['rating'].toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    accommodation['price_per_night'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and Location
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        accommodation['name'],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${accommodation['flag']} ${accommodation['location']}',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  accommodation['description'],
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Room Types
+                Wrap(
+                  spacing: 8,
+                  children: (accommodation['room_types'] as List<String>).map((type) {
+                    return Chip(
+                      label: Text(
+                        type,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      backgroundColor: Colors.grey[200],
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                // Amenities
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: (accommodation['amenities'] as List<Map<String, dynamic>>).map((amenity) {
+                      return Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        child: Row(
+                          children: [
+                            Text(amenity['icon']),
+                            const SizedBox(width: 4),
+                            Text(
+                              amenity['name'],
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Local filtering function to avoid provider dependency loop
+  List<Place> _filterPlacesByMood(List<Place> allPlaces, String currentMood) {
+    // Create a pre-filtered set of types for faster lookups
+    final Map<String, Set<String>> moodToActivityTypes = {
+      'Energetic': {'gym', 'park', 'stadium', 'amusement_park', 'sports_complex'},
+      'Relaxed': {'spa', 'park', 'cafe', 'library', 'art_gallery'},
+      'Cultural': {'museum', 'art_gallery', 'church', 'historic', 'landmark'},
+      'Social': {'restaurant', 'bar', 'night_club', 'cafe', 'shopping_mall'},
+      'Romantic': {'restaurant', 'park', 'art_gallery', 'cafe', 'tourist_attraction'},
+      'Adventure': {'amusement_park', 'park', 'tourist_attraction', 'zoo', 'aquarium'},
+      'Foodie': {'restaurant', 'cafe', 'bakery', 'food', 'bar'},
+    };
+    
+    // Force default to Social if currentMood isn't found
+    final relevantTypes = moodToActivityTypes[currentMood] ?? moodToActivityTypes['Social'] ?? {'restaurant'};
+    
+    // Early return if no places or no relevant types
+    if (allPlaces.isEmpty || relevantTypes.isEmpty) {
+      return allPlaces;
+    }
+    
+    // Much faster filtering approach
+    return allPlaces.where((place) {
+      // Check if any place type (lowercase) is in the relevant types set
+      for (final type in place.types) {
+        if (relevantTypes.contains(type.toLowerCase())) {
+          return true;
+        }
+      }
+      return false;
+    }).take(30).toList(); // Limit to 30 places for performance
   }
 }
 
@@ -1404,9 +2141,9 @@ class Destination {
     required this.name,
     required this.description,
     required this.imageUrl,
-    required this.rating,
+    required double? rating,
     required this.category,
     required this.activities,
     this.isAsset = false,
-  });
+  }) : rating = rating ?? 0.0;
 } 

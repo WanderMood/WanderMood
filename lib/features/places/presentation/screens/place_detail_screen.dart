@@ -15,6 +15,10 @@ import '../widgets/booking_section.dart';
 import '../widgets/expanded_image_view.dart';
 import '../widgets/place_image.dart';
 
+extension StringExtension on String {
+  String toCapitalized() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
+}
+
 class PlaceDetailScreen extends ConsumerStatefulWidget {
   final String placeId;
 
@@ -37,6 +41,10 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
     _tabController = TabController(length: 3, vsync: this, animationDuration: const Duration(milliseconds: 300));
     _tabController.addListener(_handleTabChange);
     _scrollController.addListener(_onScroll);
+    // Force a refresh when the screen loads to get the latest data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(placeDetailRefreshProvider.notifier).refresh();
+    });
   }
 
   @override
@@ -212,6 +220,52 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                           ),
                         ),
                       ),
+                      Material(
+                        color: Colors.transparent,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.12),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 2),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.4),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.refresh,
+                              color: Colors.grey.shade700,
+                              size: 22,
+                            ),
+                            onPressed: () {
+                              // Force a refresh of the place details
+                              ref.read(placeDetailRefreshProvider.notifier).refresh();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Refreshing place information including latest descriptions...',
+                                    style: GoogleFonts.poppins(),
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: const Color(0xFF12B347),
+                                ),
+                              );
+                            },
+                            splashRadius: 24,
+                          ),
+                        ),
+                      ),
                     ],
                     flexibleSpace: Stack(
                       children: [
@@ -259,12 +313,13 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                             fit: StackFit.expand,
                             children: [
                               PlaceImage(
-                                imageUrl: place.photos.isNotEmpty 
-                                  ? place.photos.first 
-                                  : 'assets/images/qr_placeholder.png',
+                                photoReference: place.photos.isNotEmpty ? place.photos.first : null,
+                                placeType: place.types.isNotEmpty ? place.types.first : 'default',
+                                width: double.infinity,
                                 height: 320,
-                                fit: BoxFit.cover,
-                                borderRadius: BorderRadius.zero,
+                                borderRadius: const BorderRadius.vertical(
+                                  bottom: Radius.circular(24),
+                                ),
                               ),
                               Container(
                                 decoration: BoxDecoration(
@@ -319,22 +374,22 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        if (place.tag != null)
+                                        if (place.types.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
+                                              horizontal: 12,
+                                              vertical: 6,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(12),
+                                              color: Colors.green.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(20),
                                             ),
                                             child: Text(
-                                              place.tag!,
-                                              style: GoogleFonts.poppins(
-                                                color: Colors.white,
+                                              place.types.first.replaceAll('_', ' ').toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.bold,
                                                 fontSize: 12,
-                                                fontWeight: FontWeight.w500,
                                               ),
                                             ),
                                           ),
@@ -590,7 +645,8 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
           const SizedBox(height: 24),
 
           // Activities
-          if (place.activities.isNotEmpty) ...[
+          if (place.types.isNotEmpty) ...[
+            const SizedBox(height: 24),
             Text(
               'Activities',
               style: GoogleFonts.poppins(
@@ -600,43 +656,19 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
               ),
             ),
             const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: place.activities.map((activity) {
-                  // Add emoji based on activity type
-                  String emoji = _getEmojiForActivity(activity);
-                  
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: Text(
-                        emoji,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                      label: Text(
-                        activity,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: const Color(0xFF12B347).withOpacity(0.3)),
-                        backgroundColor: const Color(0xFF12B347).withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                    ),
-                  );
-                }).toList(),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: place.types
+                    .where((type) => _isRelevantType(type))
+                    .map((type) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildActivityChip(context, type),
+                        ))
+                    .toList(),
               ),
             ),
-            const SizedBox(height: 24),
           ],
 
           // Opening Hours (dummy data)
@@ -1059,64 +1091,73 @@ class _PlaceDetailScreenState extends ConsumerState<PlaceDetailScreen>
     );
   }
 
-  String _getEmojiForActivity(String activity) {
-    // Map activities to appropriate emojis
-    switch (activity.toLowerCase()) {
-      case 'food tour':
-        return '🍽️';
-      case 'shopping':
-        return '🛍️';
-      case 'architecture':
-        return '🏛️';
-      case 'hiking':
-        return '🥾';
-      case 'beach':
-        return '🏖️';
-      case 'city':
-        return '🏙️';
-      case 'nature':
-        return '🌿';
-      case 'food':
-        return '🍴';
-      case 'art':
-        return '🎨';
-      case 'history':
-        return '🏛️';
-      case 'adventure':
-        return '🤩';
-      case 'relaxation':
-        return '🧘';
-      case 'cultural':
-        return '🎭';
-      case 'sports':
-        return '⚽';
-      case 'family':
-        return '👨‍👩‍👧‍👦';
-      case 'romantic':
-        return '💑';
-      case 'solo':
-        return '🧳';
-      case 'local':
-        return '🏠';
-      case 'international':
-        return '✈️';
-      case 'nightlife':
-        return '🌃';
+  bool _isRelevantType(String type) {
+    final relevantTypes = {
+      'restaurant',
+      'museum',
+      'park',
+      'shopping_mall',
+      'tourist_attraction',
+      'art_gallery',
+      'cafe',
+      'bar',
+      'historic',
+      'landmark',
+    };
+    return relevantTypes.contains(type);
+  }
+
+  Widget _buildActivityChip(BuildContext context, String activity) {
+    final IconData icon = _getActivityIcon(activity);
+    final String label = activity.replaceAll('_', ' ').toCapitalized();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.green),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getActivityIcon(String activity) {
+    switch (activity) {
+      case 'restaurant':
+        return Icons.restaurant;
       case 'museum':
-        return '🖼️';
+        return Icons.museum;
       case 'park':
-        return '🌳';
-      case 'market':
-        return '🛒';
-      case 'street food':
-        return '🥘';
-      case 'tour':
-        return '🧭';
+        return Icons.park;
+      case 'shopping_mall':
+        return Icons.shopping_bag;
+      case 'tourist_attraction':
+        return Icons.attractions;
+      case 'art_gallery':
+        return Icons.palette;
+      case 'cafe':
+        return Icons.coffee;
+      case 'bar':
+        return Icons.local_bar;
+      case 'historic':
+        return Icons.history;
       case 'landmark':
-        return '🗿';
+        return Icons.location_city;
       default:
-        // If no specific emoji is found, return a generic one
-        return '✨';
+        return Icons.place;
     }
   }
 }

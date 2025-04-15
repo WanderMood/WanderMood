@@ -15,10 +15,10 @@ import '../widgets/interactive_weather_widget.dart';
 import '../widgets/mood_tile.dart';
 import 'package:wandermood/features/weather/presentation/widgets/hourly_weather_widget.dart';
 import 'explore_screen.dart';
-import 'agenda_screen.dart';
+import 'agenda_screen.dart' as local_agenda;
 import 'package:go_router/go_router.dart';
 import 'package:wandermood/features/location/presentation/widgets/location_dropdown.dart';
-import 'trending_screen.dart';
+import 'trending_screen.dart' as local_trending;
 import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
 import 'package:wandermood/features/mood/presentation/widgets/mood_selector.dart';
 import 'package:wandermood/core/domain/providers/location_notifier_provider.dart';
@@ -27,6 +27,9 @@ import 'package:wandermood/features/weather/providers/weather_provider.dart';
 import 'package:wandermood/features/home/presentation/widgets/moody_character.dart';
 import 'package:wandermood/features/plans/presentation/screens/plan_result_screen.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:wandermood/features/profile/presentation/widgets/profile_drawer.dart';
+import 'package:wandermood/features/profile/domain/providers/profile_provider.dart';
+import 'package:wandermood/features/home/presentation/screens/main_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -43,6 +46,7 @@ enum TimeOfDay {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _showMoodSelector = false;
   bool _isMoodSelectorVisible = false;
   Set<String> _selectedMoods = {};
@@ -50,6 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   String _timeGreeting = '';
   late AnimationController _animationController;
   MoodyFeature _currentMoodyFeature = MoodyFeature.none;
+  int _selectedIndex = 0;
   final List<String> _funGreetings = [
     "What's cookin', good lookin'?",
     "Hey there, superstar!",
@@ -97,6 +102,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   
   // Time tracking for background
   late TimeOfDay _currentTimeOfDay;
+  
+  // Define the screens to show for each tab
+  late final List<Widget> _screens;
   
   @override
   void initState() {
@@ -203,278 +211,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   
   @override
   Widget build(BuildContext context) {
-    final locationAsync = ref.watch(locationNotifierProvider);
+    final locationAsync = ref.watch(locationStateProvider);
     final userData = ref.watch(userDataProvider);
     final weatherAsync = ref.watch(weatherProvider);
     
     // Fetch location if not already available
-    if (locationAsync is AsyncData && locationAsync.value == null) {
-      Future.microtask(() {
-        ref.read(locationNotifierProvider.notifier).getCurrentLocation();
-      });
-    }
+    locationAsync.whenData((state) {
+      if (state.city == null) {
+        Future.microtask(() {
+          ref.read(locationNotifierProvider.notifier).getCurrentLocation();
+        });
+      }
+    });
+
+    // Initialize screens lazily here instead of in initState
+    final screens = [
+      _buildHomeContent(),
+      const ExploreScreen(),
+      const local_trending.TrendingScreen(),
+      const local_agenda.AgendaScreen(),
+      const ProfileScreen(),
+    ];
 
     return DynamicTravelBackground(
       timeOfDay: _currentTimeOfDay,
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const ProfileDrawer(),
         backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // Main content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Top bar with profile, location and weather
-                    _buildTopBar(locationAsync, userData, weatherAsync),
-                    
-                    // Moody character centered - with new positioning
-                    Expanded(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Speech bubble on the left side (with more vibrant color)
-                          Positioned(
-                            top: 60,
-                            left: 30,
-                            width: MediaQuery.of(context).size.width * 0.75,
-                            child: _buildSpeechBubble(
-                              _greeting,
-                              onTap: null,
-                            ).animate().fadeIn(duration: 1000.ms),
-                          ),
-                          
-                          // Moody character positioned on the right - moved down
-                          Positioned(
-                            top: 200,
-                            right: 30,
-                            child: Container(
-          decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  center: Alignment.center,
-                                  radius: 0.8,
-                                  colors: [
-                                    const Color(0xFFB3E5FC).withOpacity(0.6),  // Light blue center
-                                    const Color(0xFFE3F2FD).withOpacity(0.3),  // Very light blue
-                                    const Color(0xFFE3F2FD).withOpacity(0.0),  // Transparent outer
-                                  ],
-                                  stops: const [0.0, 0.5, 1.0],
-                                ),
-            boxShadow: [
-                                  // Soft outer glow
-                                  BoxShadow(
-                                    color: const Color(0xFFB3E5FC).withOpacity(0.3),
-                                    blurRadius: 30,
-                                    spreadRadius: 10,
-                                  ),
-                                  // Inner shadow for depth
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 15,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-                              child: ClipOval(
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    splashColor: const Color(0xFF4CAF50).withOpacity(0.2),
-                                    highlightColor: Colors.transparent,
-                                    customBorder: const CircleBorder(),
-                                    onTap: () {
-                                      setState(() {
-                                        _currentMoodyFeature = _showMoodSelector 
-                                          ? MoodyFeature.none 
-                                          : MoodyFeature.moodTracking;
-                                        _updateGreeting();
-                                      });
-                                      Future.delayed(const Duration(milliseconds: 300), () {
-                                        if (mounted) _toggleMoodSelector();
-                                      });
-                                    },
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: RadialGradient(
-                                          center: Alignment.topLeft,
-                                          radius: 1.5,
-                                          colors: [
-                                            Colors.white.withOpacity(0.95),
-                                            Colors.white.withOpacity(0.9),
-                ],
-              ),
-            ),
-                                      child: MoodyCharacter(
-                                        size: 150,
-                                        mood: 'default',
-                                        currentFeature: _currentMoodyFeature,
-                                        mouthScaleFactor: _showMoodSelector ? 1.2 : 1.0,
-          ),
-        ),
-      ),
-                                ),
-                              ),
-                            ),
-                          ).animate(
-                            onPlay: (controller) => controller.repeat(),
-                          ).scale(
-                            begin: const Offset(1, 1),
-                            end: const Offset(1.05, 1.05),
-                            duration: const Duration(milliseconds: 2000),
-                            curve: Curves.easeInOut,
-                          ),
-                          
-                          // Achievement badges section (below Moody)
-                          Positioned(
-                            top: 360,
-                            left: 20,
-                            right: 20,
-                            child: AnimatedOpacity(
-                              opacity: _showMoodSelector ? 0.0 : 1.0,
-                              duration: const Duration(milliseconds: 300),
-      child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-                                    'How are you feeling today?',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF2E7D32),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-          Text(
-                                    'Tap the Moody character or the mood button below to select your mood!',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Mood selector panel
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                bottom: _showMoodSelector ? 0 : -580,
-                left: 0,
-                right: 0,
-                height: 580,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header with close button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-          Text(
-                              'Select your mood',
-                              style: GoogleFonts.museoModerno(
-                                fontSize: 18,
-              fontWeight: FontWeight.w600,
-                                color: const Color(0xFF388E3C),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Color(0xFF388E3C)),
-                              onPressed: _toggleMoodSelector,
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // Divider
-                      const Divider(),
-                      
-                      // Mood selector
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: MoodSelector(
-                            onMoodsSelected: (moods) {
-                              setState(() {
-                                _selectedMoods = moods;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: screens,
         ),
         // Floating action button to show mood selector when card is hidden - with more vibrant color
-        floatingActionButton: !_showMoodSelector ? FloatingActionButton(
+        floatingActionButton: _selectedIndex == 0 && !_showMoodSelector ? FloatingActionButton(
           onPressed: _toggleMoodSelector,
           backgroundColor: const Color(0xFF4CAF50),
           foregroundColor: Colors.white,
           elevation: 6, // Enhanced elevation
           child: const Icon(Icons.mood, color: Colors.white),
         ) : null,
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_outlined, 'Home', _selectedIndex == 0),
+                  _buildNavItem(1, Icons.explore_outlined, 'Explore', _selectedIndex == 1),
+                  _buildNavItem(2, Icons.local_fire_department, 'Trending', _selectedIndex == 2),
+                  _buildNavItem(3, Icons.calendar_today_outlined, 'Agenda', _selectedIndex == 3),
+                  _buildNavItem(4, Icons.person_outline, 'Profile', _selectedIndex == 4),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
   
-  Widget _buildTopBar(AsyncValue<String?> locationAsync, AsyncValue<Map<String, dynamic>?> userData, AsyncValue<WeatherData?> weatherAsync) {
+  Widget _buildTopBar(AsyncValue<LocationState> locationAsync, AsyncValue<Map<String, dynamic>?> userData, AsyncValue<WeatherData?> weatherAsync) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           // Profile and location group
           Expanded(
             child: Row(
-                  children: [
-                // Profile picture
-                userData.when(
-                  data: (data) => CircleAvatar(
-                    radius: 24,
-                    backgroundColor: const Color(0xFF4CAF50),
-                    backgroundImage: data?['avatarUrl'] != null 
-                        ? NetworkImage(data!['avatarUrl']) 
-                        : null,
-                    child: data?['avatarUrl'] == null 
-                        ? const Icon(Icons.person, color: Colors.white)
-                        : null,
-                  ),
-                  loading: () => const ShimmerAvatar(),
-                  error: (_, __) => const ErrorAvatar(),
-                ),
+              children: [
+                // Profile button
+                _buildProfileButton(),
 
                 const SizedBox(width: 8),
 
@@ -486,7 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
-                      children: [
+                        children: [
                           Icon(Icons.location_on, 
                             color: const Color(0xFF4CAF50).withOpacity(0.8),
                             size: 20,
@@ -495,12 +315,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                           Flexible(
                             child: Text(
                               locationAsync.when(
-                                data: (location) => location ?? 'Select Location',
+                                data: (state) => state?.city ?? 'Select Location',
                                 loading: () => 'Loading...',
-                                error: (_, __) => 'Location unavailable',
+                                error: (_, __) => 'Error loading location',
                               ),
                               style: GoogleFonts.poppins(
-            fontSize: 14,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: const Color(0xFF2E7D32),
                               ),
@@ -516,9 +336,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       ),
                     ),
                   ),
-                    ),
-                  ],
                 ),
+              ],
+            ),
           ),
 
           const SizedBox(width: 8),
@@ -527,24 +347,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
           weatherAsync.when(
             data: (weather) => weather != null ? InkWell(
               onTap: () => _showWeatherDetails(context, weather),
-      child: Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
-      children: [
+                children: [
                   Icon(Icons.wb_sunny, 
                     color: const Color(0xFFFFA000).withOpacity(0.8),
                     size: 18,
                   ),
                   const SizedBox(width: 4),
-        Text(
+                  Text(
                     '${weather.temperature.round()}°',
                     style: GoogleFonts.poppins(
                       fontSize: 15,
-            fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                       color: const Color(0xFFFF8F00),
-          ),
-        ),
-      ],
-                      ),
+                    ),
+                  ),
+                ],
+              ),
             ) : const SizedBox(),
             loading: () => const ShimmerWeather(),
             error: (_, __) => const ErrorWeather(),
@@ -552,6 +372,95 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         ],
       ),
     );
+  }
+
+  Widget _buildProfileButton() {
+    final profileData = ref.watch(profileProvider);
+    
+    return GestureDetector(
+      onTap: () {
+        _scaffoldKey.currentState?.openDrawer();
+      },
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF12B347), Color(0xFF0F9A3F)],
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF12B347).withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(2.0),
+          child: profileData.when(
+            data: (profile) => profile?.imageUrl != null
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                    image: DecorationImage(
+                      image: NetworkImage(profile!.imageUrl!),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: Center(
+                    child: Text(
+                      profile?.fullName?.substring(0, 1).toUpperCase() ?? 'U',
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF12B347),
+                      ),
+                    ),
+                  ),
+                ),
+            loading: () => Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF12B347),
+                  ),
+                ),
+              ),
+            ),
+            error: (_, __) => Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                color: Color(0xFF12B347),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ).animate()
+      .fadeIn(duration: 400.ms)
+      .slideX(begin: -0.2, end: 0);
   }
 
   Widget _buildSpeechBubble(String message, {VoidCallback? onTap}) {
@@ -566,8 +475,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             top: -8,
             right: -8,
             bottom: -8,
-      child: Container(
-        decoration: BoxDecoration(
+            child: Container(
+              decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -590,9 +499,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             ),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
+              child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-                  decoration: BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -612,14 +521,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     width: 1.5,
                   ),
                 ),
-              child: Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  children: [
                     // Message text with dark green color
-                  Text(
+                    Text(
                       message,
                       style: GoogleFonts.poppins(
-              fontSize: 16,
+                        fontSize: 16,
                         color: const Color(0xFF1B5E20),
                         height: 1.4,
                         fontWeight: FontWeight.w500,
@@ -627,7 +536,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     ),
                     
                     // Time indicator dots with green colors
-                                const SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: List.generate(3, (index) => 
@@ -640,11 +549,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                             shape: BoxShape.circle,
                           ),
                         )
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
           ),
           
@@ -785,30 +694,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
   Widget _buildCityItem(String cityName, IconData icon, WidgetRef ref) {
     return InkWell(
-              onTap: () {
+      onTap: () {
         // Now we always use current location instead of setting a specific city
         ref.read(locationNotifierProvider.notifier).getCurrentLocation();
         Navigator.pop(context);
-              },
-        child: Container(
+      },
+      child: Container(
         margin: const EdgeInsets.only(bottom: 8.0),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.grey.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-      children: [
+          children: [
             Icon(icon, color: Colors.grey[700]),
             const SizedBox(width: 12),
-        Text(
+            Text(
               cityName,
               style: GoogleFonts.poppins(
-              fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -828,9 +737,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             topLeft: Radius.circular(24),
             topRight: Radius.circular(24),
           ),
-                ),
-                child: Column(
-                  children: [
+        ),
+        child: Column(
+          children: [
             // Handle bar
             Container(
               margin: const EdgeInsets.only(top: 12, bottom: 8),
@@ -846,8 +755,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                      children: [
-                        Text(
+                children: [
+                  Text(
                     weather.location,
                     style: GoogleFonts.museoModerno(
                       fontSize: 24,
@@ -862,42 +771,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       fontSize: 14,
                       color: Colors.grey[700],
                     ),
-                        ),
-                      ],
-                    ),
+                  ),
+                ],
+              ),
             ),
-              
+            
             // Current weather
-              Container(
+            Container(
               margin: const EdgeInsets.symmetric(horizontal: 16.0),
               padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 color: const Color(0xFF5BB32A).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
+              ),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
+                    children: [
+                      Text(
                         'Now',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                        color: Colors.grey[800],
+                          color: Colors.grey[800],
+                        ),
                       ),
-                                ),
-                                const SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                    Text(
+                          Text(
                             '${weather.temperature.round()}',
                             style: GoogleFonts.poppins(
                               fontSize: 48,
-                  fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                               color: Colors.grey[900],
                             ),
                           ),
@@ -910,9 +819,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                           ),
                         ],
                       ),
-          Text(
+                      Text(
                         weather.condition,
-            style: GoogleFonts.poppins(
+                        style: GoogleFonts.poppins(
                           fontSize: 16,
                           color: Colors.grey[800],
                         ),
@@ -930,17 +839,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                         size: 80,
                       );
                     },
-                          ),
-                        ],
-                      ),
+                  ),
+                ],
+              ),
             ),
             
             // Weather details
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
                   _buildWeatherDetailCard(
                     'Feels Like',
                     '${weather.details['feelsLike']}°',
@@ -955,27 +864,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     'Wind',
                     '${weather.details['windSpeed']} km/h',
                     Icons.air,
-                          ),
-                        ],
-                      ),
+                  ),
+                ],
+              ),
             ),
             
             // Hourly forecast title
-          Padding(
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Align(
                 alignment: Alignment.centerLeft,
-            child: Text(
+                child: Text(
                   'Hourly forecast',
-              style: GoogleFonts.poppins(
+                  style: GoogleFonts.poppins(
                     fontSize: 18,
-                fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                     color: Colors.grey[900],
                   ),
+                ),
               ),
             ),
-          ),
-          
+            
             // Hourly forecast (fake data)
             SizedBox(
               height: 150,
@@ -994,38 +903,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                     decoration: BoxDecoration(
                       color: isNow ? const Color(0xFF5BB32A).withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                       border: isNow ? Border.all(
                         color: const Color(0xFF5BB32A),
                         width: 1.5,
                       ) : null,
                     ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           isNow ? 'Now' : '$hour:00',
                           style: GoogleFonts.poppins(
-            fontSize: 14,
+                            fontSize: 14,
                             fontWeight: isNow ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                         const SizedBox(height: 12),
-            Icon(
+                        Icon(
                           isNight ? Icons.nightlight_round : Icons.wb_sunny,
                           color: isNight ? Colors.indigo : Colors.amber,
-              size: 24,
-            ),
+                          size: 24,
+                        ),
                         const SizedBox(height: 12),
-                            Text(
+                        Text(
                           '$temp°',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
-                            ),
-                          ],
                         ),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -1040,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   '3-day forecast',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
-            fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                     color: Colors.grey[900],
                   ),
                 ),
@@ -1061,7 +970,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8.0),
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                       color: index == 0 ? const Color(0xFF5BB32A).withOpacity(0.1) : Colors.grey.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -1076,30 +985,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                           ),
                         ),
                         Row(
-                  children: [
+                          children: [
                             Icon(
                               index == 2 ? Icons.cloud : Icons.wb_sunny,
                               color: index == 2 ? Colors.grey : Colors.amber,
                               size: 24,
                             ),
                             const SizedBox(width: 8),
-                    Text(
+                            Text(
                               '$highTemp° / $lowTemp°',
                               style: GoogleFonts.poppins(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                  ),
-                    ),
-                  ],
-                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   );
                 },
               ),
-          ),
-            ],
-          ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1142,6 +1051,289 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     ];
     return days[weekday - 1];
   }
+
+  Widget _buildNavItem(int index, IconData icon, String label, bool isSelected) {
+    final emoji = _getEmojiForTab(index);
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF12B347).withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF12B347) : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  String _getEmojiForTab(int index) {
+    switch (index) {
+      case 0:
+        return '🏠'; // Home
+      case 1:
+        return '🌍'; // Explore
+      case 2:
+        return '🔥'; // Trending
+      case 3:
+        return '📅'; // Agenda
+      case 4:
+        return '👤'; // Profile
+      default:
+        return '❓';
+    }
+  }
+  
+  // Home content as a separate widget
+  Widget _buildHomeContent() {
+    return SafeArea(
+      child: Stack(
+        children: [
+          // Main content
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Top bar with profile, location and weather
+                _buildTopBar(
+                  ref.watch(locationStateProvider),
+                  ref.watch(userDataProvider),
+                  ref.watch(weatherProvider)
+                ),
+                
+                // Moody character centered - with new positioning
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Speech bubble on the left side (with more vibrant color)
+                      Positioned(
+                        top: 60,
+                        left: 30,
+                        width: MediaQuery.of(context).size.width * 0.75,
+                        child: _buildSpeechBubble(
+                          _greeting,
+                          onTap: null,
+                        ).animate().fadeIn(duration: 1000.ms),
+                      ),
+                      
+                      // Moody character positioned on the right - moved down
+                      Positioned(
+                        top: 200,
+                        right: 30,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              center: Alignment.center,
+                              radius: 0.8,
+                              colors: [
+                                const Color(0xFFB3E5FC).withOpacity(0.6),  // Light blue center
+                                const Color(0xFFE3F2FD).withOpacity(0.3),  // Very light blue
+                                const Color(0xFFE3F2FD).withOpacity(0.0),  // Transparent outer
+                              ],
+                              stops: const [0.0, 0.5, 1.0],
+                            ),
+                            boxShadow: [
+                              // Soft outer glow
+                              BoxShadow(
+                                color: const Color(0xFFB3E5FC).withOpacity(0.3),
+                                blurRadius: 30,
+                                spreadRadius: 10,
+                              ),
+                              // Inner shadow for depth
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 15,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                splashColor: const Color(0xFF4CAF50).withOpacity(0.2),
+                                highlightColor: Colors.transparent,
+                                customBorder: const CircleBorder(),
+                                onTap: () {
+                                  setState(() {
+                                    _currentMoodyFeature = _showMoodSelector 
+                                      ? MoodyFeature.none 
+                                      : MoodyFeature.moodTracking;
+                                    _updateGreeting();
+                                  });
+                                  Future.delayed(const Duration(milliseconds: 300), () {
+                                    if (mounted) _toggleMoodSelector();
+                                  });
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(
+                                      center: Alignment.topLeft,
+                                      radius: 1.5,
+                                      colors: [
+                                        Colors.white.withOpacity(0.95),
+                                        Colors.white.withOpacity(0.9),
+                                      ],
+                                    ),
+                                  ),
+                                  child: MoodyCharacter(
+                                    size: 150,
+                                    mood: 'default',
+                                    currentFeature: _currentMoodyFeature,
+                                    mouthScaleFactor: _showMoodSelector ? 1.2 : 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ).animate(
+                        onPlay: (controller) => controller.repeat(),
+                      ).scale(
+                        begin: const Offset(1, 1),
+                        end: const Offset(1.05, 1.05),
+                        duration: const Duration(milliseconds: 2000),
+                        curve: Curves.easeInOut,
+                      ),
+                      
+                      // Achievement badges section (below Moody)
+                      Positioned(
+                        top: 360,
+                        left: 20,
+                        right: 20,
+                        child: AnimatedOpacity(
+                          opacity: _showMoodSelector ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'How are you feeling today?',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF2E7D32),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Tap the Moody character or the mood button below to select your mood!',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Mood selector panel
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            bottom: _showMoodSelector ? 0 : -580,
+            left: 0,
+            right: 0,
+            height: 580,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header with close button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Select your mood',
+                          style: GoogleFonts.museoModerno(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF388E3C),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Color(0xFF388E3C)),
+                          onPressed: _toggleMoodSelector,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Divider
+                  const Divider(),
+                  
+                  // Mood selector
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: MoodSelector(
+                        onMoodsSelected: (moods) {
+                          setState(() {
+                            _selectedMoods = moods;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class DynamicTravelBackground extends StatelessWidget {
@@ -1166,7 +1358,7 @@ class DynamicTravelBackground extends StatelessWidget {
     final gradientColors = _getGradientColors();
 
     return Container(
-                decoration: BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -1186,7 +1378,7 @@ class ShimmerAvatar extends StatelessWidget {
     return Container(
       width: 48,
       height: 48,
-                          decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.grey[300],
         shape: BoxShape.circle,
       ),
@@ -1220,7 +1412,7 @@ class ShimmerWeather extends StatelessWidget {
     return Container(
       width: 80,
       height: 40,
-                    decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.grey[300],
         borderRadius: BorderRadius.circular(20),
       ),
@@ -1236,13 +1428,13 @@ class ErrorWeather extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: const Color(0xFFFFCDD2).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
           color: const Color(0xFFD32F2F).withOpacity(0.3),
-            width: 1.5,
-          ),
+          width: 1.5,
+        ),
       ),
       child: IconButton(
         icon: const Icon(Icons.refresh, color: Color(0xFFD32F2F), size: 20),

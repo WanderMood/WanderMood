@@ -128,7 +128,7 @@ class ProfileNotifier extends AsyncNotifier<Profile?> {
 
     try {
       final file = File(filePath);
-      final fileName = 'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = '${user.id}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
       
       await supabase.storage
           .from('profile_images')

@@ -51,8 +51,8 @@ class WanderMoodApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Start app initialization
-    ref.watch(appInitializerProvider);
+    // Start listening to auth state changes
+    ref.watch(authStateChangesProvider);
     
     // Get the router instance
     final router = ref.watch(routerProvider);

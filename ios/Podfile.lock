@@ -185,7 +185,7 @@ SPEC CHECKSUMS:
   flutter_facebook_auth: 48be46091bd1a5cc5a66055f1228a9d99a28bfaa
   flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12
   flutter_tts: 0f492aab6accf87059b72354fcb4ba934304771d
-  geocoding_ios: a389ea40f6f548de6e63006a2e31bf66ff80769a
+  geocoding_ios: d7460f56e80e118d57678efe5c2cdc888739ff18
   geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
   Google-Maps-iOS-Utils: 0a484b05ed21d88c9f9ebbacb007956edd508a96
   google_maps_flutter_ios: e31555a04d1986ab130f2b9f24b6cdc861acc6d3

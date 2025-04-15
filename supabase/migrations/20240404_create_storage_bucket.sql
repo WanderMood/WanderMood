@@ -32,4 +32,14 @@ CREATE POLICY "Profile images are publicly accessible"
 ON storage.objects
 FOR SELECT
 TO public
-USING (bucket_id = 'profile_images'); 
+USING (bucket_id = 'profile_images');
+
+-- Allow users to delete their own profile images
+CREATE POLICY "Users can delete their own profile image"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+    bucket_id = 'profile_images' AND
+    (storage.foldername(name))[1] = auth.uid()::text
+); 
