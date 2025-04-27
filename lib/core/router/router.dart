@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/adventure/presentation/screens/adventure_plan_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
-import '../../features/home/presentation/screens/main_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/places/presentation/screens/place_detail_screen.dart';
@@ -24,6 +23,7 @@ import '../../features/mood/presentation/pages/mood_page.dart';
 import '../../features/weather/presentation/pages/weather_page.dart';
 import '../../features/recommendations/presentation/pages/recommendations_page.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/home/presentation/screens/mood_home_screen.dart';
 
 part 'router.g.dart';
 
@@ -61,7 +61,7 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/home',
         name: 'home',
-        builder: (context, state) => const MainScreen(),
+        builder: (context, state) => const MoodHomeScreen(),
       ),
       GoRoute(
         path: '/profile',

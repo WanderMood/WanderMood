@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wandermood/features/home/presentation/widgets/moody_character.dart';
+import 'package:wandermood/features/home/domain/enums/moody_feature.dart';
+import 'package:intl/intl.dart';
 
 class PlanResultScreen extends ConsumerStatefulWidget {
   final List<String> selectedMoods;
@@ -19,208 +21,147 @@ class PlanResultScreen extends ConsumerStatefulWidget {
 }
 
 class _PlanResultScreenState extends ConsumerState<PlanResultScreen> {
-  // Mock data for places - in a real app this would come from a Places API call
-  final List<Map<String, dynamic>> _places = [];
+  final List<Map<String, dynamic>> _activities = [];
   bool _isLoading = true;
   
   @override
   void initState() {
     super.initState();
-    _fetchPlaces();
+    _fetchActivities();
   }
   
-  // Simulate API call to get places
-  Future<void> _fetchPlaces() async {
-    // In a real app, this would be an actual API call
+  Future<void> _fetchActivities() async {
     await Future.delayed(const Duration(milliseconds: 500));
     
     setState(() {
-      _places.addAll([
+      _activities.addAll([
         {
-          'name': 'Central Park Morning Walk',
-          'description': 'Start your day with a peaceful walk through Central Park\'s scenic trails.',
-          'image': 'https://images.unsplash.com/photo-1596276020587-8044fe049813',
+          'name': 'Morning Yoga in the Park',
+          'description': 'Start your day with a refreshing yoga session in the beautiful city park. Perfect for all skill levels.',
+          'image': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b',
           'rating': 4.8,
-          'hours': '6:00 AM - 1:00 AM',
-          'tags': ['Outdoor', 'Relaxing', 'Nature'],
+          'startTime': '8:30 AM',
+          'endTime': '9:30 AM',
+          'duration': '60min',
+          'section': 'Morning',
+          'tags': ['✨ Wellness 🧘‍♀️', '✨ Outdoor 🌿', '✨ Active 💪'],
         },
         {
-          'name': 'The Metropolitan Museum',
-          'description': 'Explore world-class art collections and cultural exhibits.',
-          'image': 'https://images.unsplash.com/photo-1582126891881-a7cbc1f4390b',
-          'rating': 4.9,
-          'hours': '10:00 AM - 5:00 PM',
-          'tags': ['Cultural', 'Indoor', 'Educational'],
-        },
-        {
-          'name': 'Rooftop Garden Café',
-          'description': 'Enjoy lunch with breathtaking city views in this trendy rooftop spot.',
+          'name': 'Rooftop Brunch Spot',
+          'description': 'Enjoy a delicious brunch with panoramic city views.',
           'image': 'https://images.unsplash.com/photo-1593696954577-ab3d39317b97',
-          'rating': 4.6,
-          'hours': '11:00 AM - 9:00 PM',
-          'tags': ['Food', 'Views', 'Social'],
-        },
-        {
-          'name': 'Brooklyn Bridge Sunset Walk',
-          'description': 'Take in stunning sunset views of the Manhattan skyline.',
-          'image': 'https://images.unsplash.com/photo-1568515045052-f9a854d70bfd',
           'rating': 4.7,
-          'hours': 'Open 24 hours',
-          'tags': ['Romantic', 'Views', 'Walking'],
+          'startTime': '10:30 AM',
+          'endTime': '12:00 PM',
+          'duration': '90min',
+          'section': 'Morning',
+          'tags': ['✨ Food 🍳', '✨ Views 🌆', '✨ Social 👥'],
         },
-        {
-          'name': 'Jazz Club Evening',
-          'description': 'End your day with live jazz music and craft cocktails.',
-          'image': 'https://images.unsplash.com/photo-1602274251350-14a0d9a4a1ab',
-          'rating': 4.5,
-          'hours': '7:00 PM - 2:00 AM',
-          'tags': ['Music', 'Nightlife', 'Social'],
-        },
+        // Add more activities for afternoon and evening
       ]);
       _isLoading = false;
     });
   }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Good evening';
+    } else {
+      return 'Hi night owl';
+    }
+  }
   
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final dateFormat = DateFormat('EEEE, MMMM d, y');
+    
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App bar with mood information
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            backgroundColor: const Color(0xFF4CAF50),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Your ${widget.moodString} Plan',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFF4CAF50),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
                 ),
               ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF66BB6A),
-                      const Color(0xFF4CAF50),
-                      const Color(0xFF388E3C),
-                    ],
-                  ),
-                ),
-                child: Stack(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button and title
+                  Row(
                   children: [
-                    // Background pattern
-                    Positioned.fill(
-                      child: Opacity(
-                        opacity: 0.1,
-                        child: Image.network(
-                          'https://www.transparenttextures.com/patterns/cubes.png',
-                          repeat: ImageRepeat.repeat,
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Your Day Plan',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
-                    
-                    // Mood chips
-                    Positioned(
-                      bottom: 70,
-                      left: 16,
-                      right: 16,
-                      child: Row(
-                        children: widget.selectedMoods.map((mood) {
-                          return Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
                             child: Text(
-                              mood,
+                      dateFormat.format(today),
                               style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.9),
                             ),
-                          );
-                        }).toList(),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
           
-          // Plan introduction
-          SliverToBoxAdapter(
-            child: Container(
+            // Moody's greeting
+            Container(
+              margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFDE7),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
                 children: [
-                  // Plan intro with Moody
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Moody character
-                      Container(
-                        width: 70,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            center: Alignment.center,
-                            radius: 0.8,
-                            colors: [
-                              const Color(0xFFB3E5FC).withOpacity(0.6),
-                              const Color(0xFFE3F2FD).withOpacity(0.3),
-                              const Color(0xFFE3F2FD).withOpacity(0.0),
-                            ],
-                            stops: const [0.0, 0.5, 1.0],
-                          ),
-                        ),
-                        child: const MoodyCharacter(
-                          size: 50,
+                  const MoodyCharacter(
+                    size: 40,
                           mood: 'happy',
-                          currentFeature: MoodyFeature.none,
-                        ),
                       ),
-                      
                       const SizedBox(width: 12),
-                      
-                      // Plan description
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Here\'s your personalized plan!',
+                          '${_getGreeting()} explorer 🌙',
                               style: GoogleFonts.poppins(
-                                fontSize: 18,
+                            fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFF388E3C),
+                            color: Colors.black87,
                               ),
                             ),
-                            const SizedBox(height: 8),
                             Text(
-                              _generatePlanDescription(),
+                          "I've cooked up a day full of surprises! 🎭",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                color: Colors.grey[800],
-                                height: 1.4,
+                            color: Colors.black54,
                               ),
                             ),
                           ],
@@ -228,283 +169,196 @@ class _PlanResultScreenState extends ConsumerState<PlanResultScreen> {
                       ),
                     ],
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Today's date
-                  Text(
-                    _getFormattedDate(),
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF388E3C),
+            ),
+
+            // Time section tabs
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildTimeTab('📅 Morning (3)', const Color(0xFFFFE0B2)),
+                  _buildTimeTab('😊 Afternoon (3)', const Color(0xFFFFCCBC)),
+                  _buildTimeTab('🌙 Evening (3)', const Color(0xFFE1BEE7)),
+                ],
                     ),
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  // Places section title
-                  Text(
-                    'Your Day Plan',
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[900],
+            // Activities list
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _activities.length,
+                itemBuilder: (context, index) {
+                  final activity = _activities[index];
+                  return _buildActivityCard(activity);
+                },
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          
-          // Places list
-          _isLoading
-              ? SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: CircularProgressIndicator(
-                        color: const Color(0xFF4CAF50),
-                        backgroundColor: Colors.green.withOpacity(0.2),
-                      ),
-                    ),
-                  ),
-                )
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final place = _places[index];
-                      return _buildPlaceCard(place, index);
-                    },
-                    childCount: _places.length,
-                  ),
-                ),
-          
-          // Bottom spacing
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 80),
-          ),
-        ],
+    );
+  }
+
+  Widget _buildTimeTab(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
       ),
-      
-      // Floating action button to book all activities
-      floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 16, right: 16),
-        child: FloatingActionButton.extended(
-          onPressed: () {
-            // Show booking confirmation
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'All activities booked for today!',
-                  style: GoogleFonts.poppins(),
-                ),
-                backgroundColor: const Color(0xFF388E3C),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          backgroundColor: const Color(0xFF4CAF50),
-          icon: const Icon(Icons.check_circle),
-          label: Text(
-            'Book All Activities',
+      child: Text(
+        label,
             style: GoogleFonts.poppins(
+          fontSize: 14,
               fontWeight: FontWeight.w500,
-            ),
-          ),
+          color: Colors.black87,
         ),
       ),
     );
   }
   
-  Widget _buildPlaceCard(Map<String, dynamic> place, int index) {
-    // Calculate time based on position in list
-    final startTime = DateTime.now().add(Duration(hours: index * 2 + 8));
-    final endTime = startTime.add(const Duration(hours: 2));
-    
+  Widget _buildActivityCard(Map<String, dynamic> activity) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Time indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
+          // Time and duration
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: Color(0xFF388E3C),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time, size: 16, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${activity['startTime']} - ${activity['endTime']}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    Text(
+                      ' (${activity['duration']})',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black38,
+                      ),
                 ),
-                const SizedBox(width: 8),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: Row(
+                    children: [
+                      const Icon(Icons.refresh, size: 16, color: Color(0xFF4CAF50)),
+                      const SizedBox(width: 4),
                 Text(
-                  '${_formatTime(startTime)} - ${_formatTime(endTime)}',
+                        'Not feeling this?',
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF388E3C),
+                          fontSize: 12,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
           
-          // Image
+          // Activity image
           ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(4),
-              topRight: Radius.circular(4),
-            ),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
+            borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                '${place['image']}?auto=format&fit=crop&w=800&q=80',
+              activity['image'],
+              height: 200,
+              width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: Colors.grey,
-                        size: 50,
-                      ),
-                    ),
-                  );
-                },
-              ),
             ),
           ),
           
-          // Place details
+          // Activity details
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name and rating
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(
-                        place['name'],
+                    Text(
+                      activity['name'],
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                        fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey[900],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star,
-                          size: 16,
-                          color: Color(0xFFFFC107),
-                        ),
+                        const Icon(Icons.star, size: 16, color: Color(0xFFFFB300)),
                         const SizedBox(width: 4),
                         Text(
-                          place['rating'].toString(),
+                          activity['rating'].toString(),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey[700],
                           ),
                         ),
                       ],
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 8),
-                
-                // Description
                 Text(
-                  place['description'],
+                  activity['description'],
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: Colors.grey[600],
-                    height: 1.4,
+                    color: Colors.black54,
                   ),
                 ),
-                
-                const SizedBox(height: 12),
-                
-                // Hours
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      place['hours'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Tags
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: (place['tags'] as List).map((tag) {
+                  children: (activity['tags'] as List<String>).map((tag) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                        horizontal: 12,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF4CAF50).withOpacity(0.2),
-                          width: 1,
-                        ),
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         tag,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: const Color(0xFF388E3C),
+                          color: Colors.black87,
                         ),
                       ),
                     );
                   }).toList(),
                 ),
-                
                 const SizedBox(height: 16),
-                
-                // Buttons
                 Row(
                   children: [
                     Expanded(
@@ -512,46 +366,44 @@ class _PlanResultScreenState extends ConsumerState<PlanResultScreen> {
                         onPressed: () {},
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF4CAF50),
-                          side: const BorderSide(
-                            color: Color(0xFF4CAF50),
-                            width: 1.5,
-                          ),
+                          side: const BorderSide(color: Color(0xFF4CAF50)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Directions',
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
                               fontWeight: FontWeight.w500,
-                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4CAF50),
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            'Book Now',
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Add to Plan',
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+                          ],
                         ),
                       ),
                     ),
@@ -562,37 +414,6 @@ class _PlanResultScreenState extends ConsumerState<PlanResultScreen> {
           ),
         ],
       ),
-    ).animate().fade(duration: 400.ms, delay: (index * 200).ms).slide(
-      begin: const Offset(0, 0.1),
-      end: const Offset(0, 0),
-      duration: 400.ms,
-      delay: (index * 200).ms,
-      curve: Curves.easeOut,
     );
-  }
-  
-  String _generatePlanDescription() {
-    // Generate a description based on selected moods
-    final List<String> descriptions = [
-      'Based on your mood, I\'ve created a personalized itinerary that\'s perfect for a ${widget.moodString} day.',
-      'This plan combines activities that match your ${widget.moodString} preferences with local favorites.',
-      'I\'ve selected places that are highly rated and align with your ${widget.moodString} mood today.',
-    ];
-    
-    return descriptions[DateTime.now().millisecond % descriptions.length];
-  }
-  
-  String _getFormattedDate() {
-    final now = DateTime.now();
-    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}, ${now.year}';
-  }
-  
-  String _formatTime(DateTime time) {
-    final hour = time.hour > 12 ? time.hour - 12 : time.hour;
-    final period = time.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:00 $period';
   }
 } 

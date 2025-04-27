@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:async';
-
-enum MoodyFeature {
-  navigation,
-  weather,
-  moodTracking,
-  activities,
-  settings,
-  none,
-  planGeneration,
-}
+import 'package:wandermood/features/home/domain/enums/moody_feature.dart';
 
 class MoodyCharacter extends StatefulWidget {
   final double size;
