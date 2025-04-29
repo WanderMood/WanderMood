@@ -17,6 +17,7 @@ class DayPlanService {
     TimeSlot.morning: 120,    // 2 hours
     TimeSlot.afternoon: 180,  // 3 hours
     TimeSlot.evening: 150,    // 2.5 hours
+    TimeSlot.night: 90,       // 1.5 hours
   };
 
   // Default start times for each slot
@@ -24,6 +25,7 @@ class DayPlanService {
     TimeSlot.morning: (9, 0),     // 9:00 AM
     TimeSlot.afternoon: (14, 0),  // 2:00 PM
     TimeSlot.evening: (19, 0),    // 7:00 PM
+    TimeSlot.night: (22, 0),      // 10:00 PM
   };
 
   DayPlanService._internal();

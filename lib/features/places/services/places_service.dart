@@ -21,7 +21,7 @@ class PlacesService extends _$PlacesService {
     if (_isInitialized) return;
 
     final apiKey = dotenv.env['GOOGLE_PLACES_API_KEY'];
-    debugPrint('📍 API Key from env: ${apiKey?.substring(0, 8)}...');
+    debugPrint('📍 API Key from env: ${apiKey?.substring(0, min(8, apiKey?.length ?? 0))}...');
     
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('Google Places API key not found in .env file');
@@ -32,6 +32,8 @@ class PlacesService extends _$PlacesService {
     debugPrint('✅ Places service initialized with API key');
   }
 
+  int min(int a, int b) => a < b ? a : b;
+
   /// Search for places based on a query string
   Future<List<PlacesSearchResult>> searchPlaces(String query) async {
     if (!_isInitialized) {
@@ -41,11 +43,16 @@ class PlacesService extends _$PlacesService {
     
     try {
       debugPrint('🔍 Searching for places with query: $query');
+      
+      // Add a timeout to prevent long-running API calls
       final response = await _places.searchByText(
         query,
         type: 'tourist_attraction',
         language: 'en',
-      );
+      ).timeout(const Duration(seconds: 5), onTimeout: () {
+        debugPrint('⏱️ API call timed out for query: $query');
+        throw TimeoutException('API call timed out');
+      });
 
       debugPrint('📍 Places API Response Status: ${response.status}');
       if (response.errorMessage != null) {
@@ -63,7 +70,11 @@ class PlacesService extends _$PlacesService {
         return [];
       }
     } catch (e) {
+      if (e is TimeoutException) {
+        debugPrint('⏱️ Places API request timed out: $e');
+      } else {
       debugPrint('❌ Error searching places: $e');
+      }
       return [];
     }
   }
@@ -88,7 +99,10 @@ class PlacesService extends _$PlacesService {
           'type',
           'geometry',
         ],
-      );
+      ).timeout(const Duration(seconds: 5), onTimeout: () {
+        debugPrint('⏱️ Place details API call timed out for ID: $placeId');
+        throw TimeoutException('API call timed out');
+      });
 
       debugPrint('🏷️ Place details status: ${response.status}');
       
@@ -174,7 +188,7 @@ class PlacesService extends _$PlacesService {
         name: 'Markthal Rotterdam',
         address: 'Dominee Jan Scharpstraat 298, 3011 GZ Rotterdam',
         rating: 4.6,
-        photos: ['assets/images/tom-podmore-1zkHXas1GIo-unsplash.jpg'],
+        photos: ['assets/images/fallbacks/default.jpg'],
         types: ['point_of_interest', 'food', 'establishment'],
         location: const PlaceLocation(lat: 51.920, lng: 4.487),
         description: 'Stunning market hall with food stalls and apartments',
@@ -188,7 +202,7 @@ class PlacesService extends _$PlacesService {
         name: 'Fenix Food Factory',
         address: 'Veerlaan 19D, 3072 AN Rotterdam',
         rating: 4.6,
-        photos: ['assets/images/philipp-kammerer-6Mxb_mZ_Q8E-unsplash.jpg'],
+        photos: ['assets/images/fallbacks/default.jpg'],
         types: ['point_of_interest', 'food', 'establishment'],
         location: const PlaceLocation(lat: 51.898, lng: 4.492),
         description: 'Trendy food hall in historic warehouse',
@@ -202,7 +216,7 @@ class PlacesService extends _$PlacesService {
         name: 'Euromast Experience',
         address: 'Parkhaven 20, 3016 GM Rotterdam',
         rating: 4.7,
-        photos: ['assets/images/pietro-de-grandi-T7K4aEPoGGk-unsplash.jpg'],
+        photos: ['assets/images/fallbacks/default.jpg'],
         types: ['point_of_interest', 'tourist_attraction'],
         location: const PlaceLocation(lat: 51.905, lng: 4.467),
         description: 'Iconic tower with panoramic city views',
@@ -226,4 +240,11 @@ class PlacesService extends _$PlacesService {
       maxWidth: 400,
     );
   }
+}
+
+class TimeoutException implements Exception {
+  final String message;
+  TimeoutException(this.message);
+  @override
+  String toString() => 'TimeoutException: $message';
 } 

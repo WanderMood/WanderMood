@@ -24,6 +24,8 @@ import '../../features/weather/presentation/pages/weather_page.dart';
 import '../../features/recommendations/presentation/pages/recommendations_page.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/home/presentation/screens/mood_home_screen.dart';
+import '../../features/home/presentation/screens/main_screen.dart';
+import '../../features/gamification/presentation/screens/gamification_screen.dart';
 
 part 'router.g.dart';
 
@@ -94,6 +96,21 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) {
           final selectedMoods = state.extra as List<String>;
           return PlanGenerationScreen(selectedMoods: selectedMoods);
+        },
+      ),
+      GoRoute(
+        path: '/gamification',
+        name: 'gamification',
+        builder: (context, state) => const GamificationScreen(),
+      ),
+      GoRoute(
+        path: '/main',
+        name: 'main',
+        builder: (context, state) {
+          // Get tab index from query parameters, default to 0 if not provided
+          final tabIndexStr = state.uri.queryParameters['tab'];
+          final tabIndex = tabIndexStr != null ? int.tryParse(tabIndexStr) ?? 0 : 0;
+          return MainScreen(initialTabIndex: tabIndex);
         },
       ),
     ],

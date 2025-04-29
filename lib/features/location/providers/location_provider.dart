@@ -67,6 +67,12 @@ class LocationNotifier extends AutoDisposeAsyncNotifier<String?> {
     }
   }
 
+  // Method to manually set a city
+  void setCity(String cityName) {
+    debugPrint('Manually setting city to: $cityName');
+    state = AsyncValue.data(cityName);
+  }
+
   // Method to retry getting location
   Future<void> retryLocationAccess() async {
     await getCurrentLocation();

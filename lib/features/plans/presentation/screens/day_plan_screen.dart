@@ -53,6 +53,42 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
     });
   }
 
+  void _refreshActivity(Activity activity) {
+    setState(() {
+      // Increment refresh count on the activity
+      final refreshedActivity = activity.copyWith(
+        refreshCount: activity.refreshCount + 1,
+      );
+      
+      // If it was previously selected, replace it in the selection
+      if (_selectedActivities.contains(activity)) {
+        _selectedActivities.remove(activity);
+        _selectedActivities.add(refreshedActivity);
+      }
+      
+      // Replace the activity in the main list
+      final index = widget.activities.indexOf(activity);
+      if (index >= 0) {
+        widget.activities[index] = refreshedActivity;
+      }
+    });
+    
+    // Show a snackbar to indicate refreshing action
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Finding new options for ${activity.name}...',
+          style: GoogleFonts.poppins(),
+        ),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
   Map<String, List<Activity>> _groupActivitiesByTimeSlot() {
     final result = <String, List<Activity>>{};
     
@@ -1008,56 +1044,4 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
       'duration': 90,
     },
   ];
-
-  void _refreshActivity(Activity activity) {
-    // Show loading indicator
-    setState(() {
-      // Set activity to loading state if needed
-    });
-    
-    // Simulate API delay
-    Future.delayed(const Duration(milliseconds: 800), () {
-      // Get a random alternative activity (in a real app, this would be more sophisticated)
-      final random = Random();
-      final alternativeData = _alternativeActivities[random.nextInt(_alternativeActivities.length)];
-      
-      // Create a new activity with the same time slot and start time
-      final newActivity = Activity(
-        id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-        name: alternativeData['name'],
-        description: alternativeData['description'],
-        imageUrl: alternativeData['imageUrl'],
-        rating: alternativeData['rating'],
-        startTime: activity.startTime,
-        duration: alternativeData['duration'],
-        timeSlot: activity.timeSlot,
-        tags: List<String>.from(alternativeData['tags']),
-        timeSlotEnum: activity.timeSlotEnum,
-        location: activity.location, // Keeping the same location for simplicity
-      );
-      
-      // Update the activity in the list
-      setState(() {
-        final index = widget.activities.indexOf(activity);
-        if (index != -1) {
-          widget.activities[index] = newActivity;
-        }
-        
-        // If the activity was selected, update the selection
-        if (_selectedActivities.contains(activity)) {
-          _selectedActivities.remove(activity);
-          _selectedActivities.add(newActivity);
-        }
-      });
-      
-      // Show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Found a new activity for your ${activity.timeSlot}!'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: const Color(0xFF4CAF50),
-        ),
-      );
-    });
-  }
 } 

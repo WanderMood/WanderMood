@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:wandermood/features/home/presentation/widgets/moody_character.dart';
 import 'package:wandermood/features/home/domain/enums/moody_feature.dart';
 import 'package:intl/intl.dart';
+import 'package:wandermood/features/plans/presentation/screens/confirm_plan_screen.dart';
 
 class PlanResultScreen extends ConsumerStatefulWidget {
   final List<String> selectedMoods;
@@ -83,6 +84,23 @@ class _PlanResultScreenState extends ConsumerState<PlanResultScreen> {
     
     return Scaffold(
       backgroundColor: Colors.white,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ConfirmPlanScreen(),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFF12B347),
+        label: Text(
+          'Confirm Plan',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        icon: const Icon(Icons.check_circle_outline),
+      ),
       body: SafeArea(
         child: Column(
           children: [

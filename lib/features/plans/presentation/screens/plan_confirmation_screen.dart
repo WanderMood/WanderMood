@@ -6,6 +6,7 @@ import 'package:wandermood/core/presentation/widgets/swirl_background.dart';
 import 'package:wandermood/features/home/presentation/screens/main_home_screen.dart';
 import 'package:wandermood/features/home/presentation/screens/mood_home_screen.dart';
 import 'package:wandermood/features/plans/presentation/widgets/plan_loading_overlay.dart';
+import 'package:go_router/go_router.dart';
 
 class PlanConfirmationScreen extends StatelessWidget {
   final List<Activity> activities;
@@ -25,7 +26,7 @@ class PlanConfirmationScreen extends StatelessWidget {
   List<Activity> get paidActivities =>
       activities.where((activity) => activity.isPaid).toList();
 
-  void _navigateWithLoading(BuildContext context, String message) {
+  void _navigateWithLoading(BuildContext context, String message, {String? destination}) {
     // Show loading overlay
     showDialog(
       context: context,
@@ -35,11 +36,19 @@ class PlanConfirmationScreen extends StatelessWidget {
 
     // Wait for 2-3 seconds before navigating
     Future.delayed(const Duration(seconds: 2), () {
-      // Navigate to main screen
+      // Close the loading overlay
+      Navigator.pop(context);
+      
+      if (destination != null) {
+        // Navigate to the specified destination
+        context.go(destination);
+      } else {
+        // Default navigation to main screen
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const MainHomeScreen()),
         (route) => false,
       );
+      }
     });
   }
 
@@ -272,7 +281,11 @@ class PlanConfirmationScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: () => _navigateWithLoading(context, 'Saving your plan for later...'),
+          onPressed: () => _navigateWithLoading(
+            context, 
+            'Saving your plan for later...', 
+            destination: '/explore'
+          ),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             side: const BorderSide(color: Color(0xFF12B347), width: 2),

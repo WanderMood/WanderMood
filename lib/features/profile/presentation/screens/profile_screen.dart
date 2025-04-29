@@ -365,6 +365,18 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                         child: Column(
                           children: [
+                            ListTile(
+                              leading: const Icon(Icons.emoji_events, color: Color(0xFF4CAF50)),
+                              title: Text(
+                                'Achievements',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () => context.push('/gamification'),
+                            ),
+                            const Divider(height: 1),
                             _buildSettingItem(
                               icon: Icons.notifications_outlined,
                               title: 'Notifications',

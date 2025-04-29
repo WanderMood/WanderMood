@@ -120,7 +120,9 @@ class PlanSummarySheet extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ConfirmPlanScreen(),
+                    builder: (context) => ConfirmPlanScreen(
+                      activities: selectedActivities,
+                    ),
                   ),
                 );
               },
@@ -249,7 +251,7 @@ class PlanSummarySheet extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 color: activity.paymentType == PaymentType.free
                   ? const Color(0xFF2E7D32)
-                  : const Color(0xFFFF8B00),
+                  : const Color(0xFFE65100),
               ),
             ),
           ),
@@ -259,9 +261,10 @@ class PlanSummarySheet extends StatelessWidget {
   }
 
   String _formatTime(DateTime time) {
-    final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+    final hour = time.hour;
+    final formattedHour = hour > 12 ? hour - 12 : hour == 0 ? 12 : hour;
+    final period = hour >= 12 ? 'PM' : 'AM';
     final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+    return '$formattedHour:$minute $period';
   }
 } 

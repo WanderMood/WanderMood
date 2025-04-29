@@ -18,8 +18,9 @@ class LocationResult {
 
 class LocationService {
   static const Map<String, dynamic> defaultLocation = {
-    'latitude': 52.3676,
-    'longitude': 4.9041,
+    'latitude': 51.9244,  // Rotterdam coordinates
+    'longitude': 4.4777,
+    'name': 'Rotterdam'
   };
 
   static Future<Position> getCurrentLocation() async {
@@ -102,21 +103,21 @@ class LocationService {
     try {
       final result = await getCurrentLocation();
       
-      if (result.accuracy == 0) return 'Rotterdam';
+      if (result.accuracy == 0) return defaultLocation['name'] as String;
 
       final placemarks = await placemarkFromCoordinates(
         result.latitude!,
         result.longitude!,
       );
 
-      if (placemarks.isEmpty) return 'Rotterdam';
+      if (placemarks.isEmpty) return defaultLocation['name'] as String;
 
       final place = placemarks.first;
       final city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea;
       
-      return city ?? 'Rotterdam';
+      return city ?? defaultLocation['name'] as String;
     } catch (e) {
-      return 'Rotterdam';
+      return defaultLocation['name'] as String;
     }
   }
 

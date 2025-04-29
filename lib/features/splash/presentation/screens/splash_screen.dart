@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
 import '../../../home/presentation/widgets/moody_character.dart';
+import '../../../auth/providers/auth_state_provider.dart';
 
 class SwirlingGradientPainter extends CustomPainter {
   @override
@@ -133,7 +134,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   Future<void> _initializeApp() async {
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
+      final currentUser = ref.read(authStateProvider).asData?.value;
+      if (currentUser != null) {
+        context.go('/home');
+      } else {
       context.go('/onboarding');
+      }
     }
   }
 

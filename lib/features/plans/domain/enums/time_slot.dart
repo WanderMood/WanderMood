@@ -1,5 +1,6 @@
 enum TimeSlot {
   morning,
   afternoon,
-  evening
+  evening,
+  night
 } 
